@@ -1,0 +1,81 @@
+rules_version = '2';
+
+/**
+ * MotoKE — Cloud Storage security rules.
+ *
+ * Two kinds of file live here and they have opposite rules:
+ *
+ *   Showroom photographs — public to read, staff to write. They are the shop window.
+ *   Identity documents   — write-only from the browser, staff to read. A customer
+ *                          uploads their ID and never reads it back, because reading
+ *                          it back is the attack: guess an application id, pull
+ *                          somebody's passport.
+ *
+ * Default is deny.
+ */
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function role() {
+      return signedIn() ? request.auth.token.get('role', '') : '';
+    }
+    function isStaff() {
+      return role() in ['agent', 'dealer_admin', 'superadmin'];
+    }
+    function isAdmin() {
+      return role() in ['dealer_admin', 'superadmin'];
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+    /* Magic-number checking happens on the server; content type is the cheap first
+       gate that stops an .exe renamed to .jpg from ever reaching the bucket. */
+    function isDocument() {
+      return request.resource.contentType.matches('(image/(jpeg|png|webp)|application/pdf)');
+    }
+    function under(mb) {
+      return request.resource.size < mb * 1024 * 1024;
+    }
+
+    /* ---------- the shop window ---------- */
+
+    match /vehicles/{vehicleId}/{fileName} {
+      allow read: if true;
+      allow write: if isStaff() && isImage() && under(8);
+      allow delete: if isAdmin();
+    }
+
+    match /dealers/{dealerId}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && under(4);
+    }
+
+    /* ---------- identity documents ---------- */
+
+    /* Upload and forget. The customer cannot list, read or overwrite — an uploaded
+       payslip is evidence, and evidence you can replace after the fact is not evidence. */
+    match /applications/{applicationId}/{fileName} {
+      allow read: if isStaff();
+      allow create: if signedIn() && isDocument() && under(10);
+      allow update, delete: if false;
+    }
+
+    /* ---------- a person's own avatar ---------- */
+
+    match /users/{userId}/{fileName} {
+      allow read: if request.auth.uid == userId || isStaff();
+      allow write: if request.auth.uid == userId && isImage() && under(2);
+    }
+
+    /* ---------- everything else ---------- */
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

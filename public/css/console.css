@@ -1,0 +1,590 @@
+/* ==================================================================
+   MotoKE — STAFF CONSOLE
+   The Compound design language, applied to the back office.
+
+   WHY THIS IS A SEPARATE FILE
+   The storefront runs the Lamborghini system: black stage, uppercase
+   display type, 0px radius, no shadows. That is right for a showroom
+   and wrong for a tool somebody stares at for eight hours. This sheet
+   is loaded ONLY by admin.html, layered after app.css, so the shop is
+   provably untouched — `tools/audit.js` asserts that.
+
+   WHAT WAS TAKEN FROM THE REFERENCE
+   The Compound page uses Tailwind's CDN, Google Fonts and Font
+   Awesome. All three are forbidden here: the CSP allows scripts and
+   fonts from our own origin only, and the app has to work with no
+   internet. So the design is reimplemented in plain CSS against a
+   system font stack that reads like Inter. Same result, none of the
+   dependencies.
+
+   THE LANGUAGE, IN ONE LINE
+   Light, quiet and generous. Ink on paper, one panel grey, pill
+   buttons, soft shadows, sentence case, and a great deal of air.
+   ================================================================== */
+
+.console {
+  /* --- ink and paper. The reference's own palette, kept verbatim. --- */
+  --c-ink: #171717;
+  --c-paper: #ffffff;
+  --c-vellum: #f3f3f3;
+  --c-slate: #8d8f8f;
+  --c-pewter: #5e5e5e;
+  --c-ash: #a0a0a0;
+  --c-carbon: #222222;
+  --c-stone: #c7c7c7;
+  --c-cream: #ffef9f;
+
+  --c-panel: #f8f8f8;
+  /* Hover needs its own value: on a near-black page the panel grey is
+     invisible, so dark lifts it rather than darkening it. */
+  --c-hover: #f0f0f0;
+  --c-line: #e5e5e5;
+  --c-line-soft: #efefef;
+  --c-muted: #6b7280;
+  --c-faint: #a1a1aa;
+
+  /* Status, muted to sit inside a quiet page rather than shout over it. */
+  --c-ok: #047857;
+  --c-ok-bg: #ecfdf5;
+  --c-warn: #b45309;
+  --c-warn-bg: #fffbeb;
+  --c-err: #b91c1c;
+  --c-err-bg: #fef2f2;
+  --c-info: #1d4ed8;
+  --c-info-bg: #eff6ff;
+
+  /* --- shape. Round, where the storefront is square. --- */
+  --c-r-sm: 8px;
+  --c-r: 14px;
+  --c-r-lg: 20px;
+  --c-r-xl: 28px;
+  --c-pill: 999px;
+
+  /* Two shadows only: a hairline lift, and the reference's big soft drop. */
+  --c-shadow-sm: 0 1px 2px rgba(0, 0, 0, .04);
+  --c-shadow: 0 1px 3px rgba(0, 0, 0, .04), 0 24px 48px -28px rgba(0, 0, 0, .16);
+
+  /* --- rhythm. The reference is extremely generous; a console has to
+         be denser or you scroll all day. Roughly two-thirds of it. --- */
+  --c-1: 4px;  --c-2: 8px;  --c-3: 12px; --c-4: 16px;
+  --c-5: 24px; --c-6: 32px; --c-7: 48px; --c-8: 64px;
+
+  /* Inter is what the reference asks for. It cannot be fetched — the CSP
+     allows fonts from our own origin only and the app runs offline — so
+     this is the closest stack already on the machine. */
+  --c-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
+            "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --c-mono: "Cascadia Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* ------------------------------------------------------------------ */
+/* the page                                                            */
+/* ------------------------------------------------------------------ */
+
+body.console {
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-family: var(--c-font);
+  -webkit-font-smoothing: antialiased;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+/* app.css's square-everything rule now excludes body.console at source
+   (`body:not(.console) *`), so nothing has to be fought here and no
+   !important is needed below. */
+
+/* Sentence case. The storefront shouts in uppercase; a console that
+   shouts is exhausting. Small labels keep their caps because at 11px
+   they read as labels rather than as shouting. */
+.console h1, .console h2, .console h3, .console h4,
+.console .btn, .console .pill, .console .tag, .console .rail-price,
+.console .sidebar-admin a, .console .subnav a, .console table.tbl td {
+  text-transform: none;
+  letter-spacing: -0.02em;
+  font-family: var(--c-font);
+}
+
+.console h1 { font-size: 34px; font-weight: 500; line-height: 1.15; margin: 0 0 var(--c-4); }
+.console h2 { font-size: 26px; font-weight: 500; line-height: 1.2;  margin: 0 0 var(--c-4); }
+.console h3 { font-size: 19px; font-weight: 500; line-height: 1.3;  margin: 0 0 var(--c-3); }
+.console h4 {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .12em; color: var(--c-faint);
+  margin: var(--c-6) 0 var(--c-3);
+}
+
+/* The reference's eyebrow: 11px, bold, wide caps, grey. It is the one
+   detail both design systems share, and it does a lot of work. */
+.console .lbl {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .12em; color: var(--c-faint);
+  margin-bottom: var(--c-3);
+}
+.console .muted { color: var(--c-muted); }
+.console .dim   { color: var(--c-faint); }
+.console .mono  { font-family: var(--c-mono); font-size: .92em; }
+
+/* ------------------------------------------------------------------ */
+/* header                                                              */
+/* ------------------------------------------------------------------ */
+
+.console .topbar {
+  background: rgba(255, 255, 255, .88);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--c-line);
+  position: sticky; top: 0; z-index: 60;
+}
+.console .topbar .wrap { min-height: 64px; padding: 0 var(--c-5); }
+
+.console .logo { color: var(--c-ink); font-weight: 600; letter-spacing: -.03em; }
+.console .logo .mark {
+  background: var(--c-ink); color: #fff; border: 0;
+  border-radius: var(--c-pill);
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  font-size: 12px; font-weight: 600;
+}
+.console .logo .sub {
+  font-size: 11px; font-weight: 500; color: var(--c-faint);
+  text-transform: uppercase; letter-spacing: .12em;
+}
+
+/* ------------------------------------------------------------------ */
+/* sidebar                                                             */
+/* ------------------------------------------------------------------ */
+
+.console .sidebar-admin {
+  width: 236px;
+  background: var(--c-paper);
+  border-right: 1px solid var(--c-line);
+  padding: var(--c-5) var(--c-3);
+  min-height: calc(100vh - 64px);
+}
+.console .sidebar-admin a {
+  border-radius: var(--c-r-sm);
+  padding: 9px 12px;
+  font-size: 14px; font-weight: 450;
+  color: var(--c-pewter);
+  margin-bottom: 1px;
+  transition: background .14s, color .14s;
+}
+.console .sidebar-admin a:hover { background: var(--c-hover); color: var(--c-ink); }
+/* Black, not brand red. The reference reserves colour almost entirely. */
+.console .sidebar-admin a.on { background: var(--c-ink); color: #fff; }
+.console .sidebar-admin .sec {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .13em; color: var(--c-stone);
+  padding: var(--c-5) 12px var(--c-2);
+}
+
+.console #view { padding: var(--c-6) var(--c-7); max-width: 1400px; }
+
+/* ------------------------------------------------------------------ */
+/* surfaces                                                            */
+/* ------------------------------------------------------------------ */
+
+.console .card {
+  background: var(--c-paper);
+  border: 1px solid var(--c-line);
+  border-radius: var(--c-r-lg);
+  box-shadow: var(--c-shadow-sm);
+  padding: var(--c-5);
+}
+.console .panel {
+  background: var(--c-panel);
+  border: 0;
+  border-radius: var(--c-r);
+  padding: var(--c-4);
+}
+
+/* The reference's headline number: very large, very light. It is the
+   one place a console is allowed to be dramatic. */
+.console .kpi {
+  background: var(--c-paper);
+  border: 1px solid var(--c-line);
+  border-radius: var(--c-r-lg);
+  box-shadow: var(--c-shadow-sm);
+  padding: var(--c-5);
+}
+.console .kpi .k {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .12em; color: var(--c-faint);
+}
+.console .kpi .v {
+  font-size: 34px; font-weight: 300; letter-spacing: -.03em;
+  margin-top: var(--c-2); line-height: 1.05;
+}
+.console .kpi .d { font-size: 13px; color: var(--c-muted); margin-top: var(--c-1); }
+.console .kpi-grid { gap: var(--c-4); }
+
+/* ------------------------------------------------------------------ */
+/* controls                                                            */
+/* ------------------------------------------------------------------ */
+
+.console .btn {
+  border-radius: var(--c-pill);
+  border: 1px solid var(--c-line);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-size: 14px; font-weight: 500;
+  padding: 9px 18px;
+  box-shadow: var(--c-shadow-sm);
+  transition: background .14s, border-color .14s, color .14s;
+}
+.console .btn:hover { background: var(--c-vellum); border-color: var(--c-stone); }
+.console .btn.primary {
+  background: var(--c-ink); border-color: var(--c-ink); color: #fff;
+}
+.console .btn.primary:hover { background: #000; border-color: #000; filter: none; }
+.console .btn.ghost { border-color: transparent; box-shadow: none; background: transparent; }
+.console .btn.ghost:hover { background: var(--c-vellum); }
+.console .btn.sm { padding: 6px 13px; font-size: 13px; }
+.console .btn.lg { padding: 12px 24px; font-size: 15px; }
+.console .btn.danger { background: var(--c-err-bg); border-color: #fecaca; color: var(--c-err); }
+.console .btn.danger:hover { background: #fee2e2; }
+.console .btn:disabled { opacity: .45; box-shadow: none; }
+
+.console .pill {
+  border-radius: var(--c-pill);
+  border: 1px solid var(--c-line);
+  background: var(--c-paper);
+  color: var(--c-pewter);
+  font-size: 13px; font-weight: 500;
+  padding: 6px 14px;
+}
+.console .pill.on { background: var(--c-ink); border-color: var(--c-ink); color: #fff; }
+
+.console .tag {
+  border-radius: var(--c-pill);
+  background: var(--c-vellum);
+  border: 0;
+  color: var(--c-pewter);
+  font-size: 12px; font-weight: 500;
+  padding: 3px 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.console .tag.ok    { background: var(--c-ok-bg);   color: var(--c-ok); }
+.console .tag.warn  { background: var(--c-warn-bg); color: var(--c-warn); }
+.console .tag.err   { background: var(--c-err-bg);  color: var(--c-err); }
+.console .tag.info  { background: var(--c-info-bg); color: var(--c-info); }
+.console .tag.brand { background: var(--c-ink); color: #fff; }
+
+/* ------------------------------------------------------------------ */
+/* forms                                                               */
+/* ------------------------------------------------------------------ */
+
+.console .field { margin-bottom: var(--c-4); }
+.console .field label {
+  display: block;
+  font-size: 13px; font-weight: 500; color: var(--c-pewter);
+  margin-bottom: 6px;
+  text-transform: none; letter-spacing: 0;
+}
+.console input, .console select, .console textarea {
+  background: var(--c-paper);
+  border: 1px solid var(--c-line);
+  border-radius: var(--c-r-sm);
+  color: var(--c-ink);
+  font-family: var(--c-font);
+  font-size: 14px;
+  padding: 10px 13px;
+  transition: border-color .14s, box-shadow .14s;
+}
+.console input:hover, .console select:hover, .console textarea:hover { border-color: var(--c-stone); }
+.console input:focus, .console select:focus, .console textarea:focus {
+  border-color: var(--c-ink);
+  box-shadow: 0 0 0 3px rgba(23, 23, 23, .07);
+  outline: none;
+}
+/* A select and its options must carry the same pair, or the OS paints
+   the popup from one and the text from the other and the choices vanish.
+   That bug cost real time on the storefront; it is not repeating here. */
+.console select, .console select option, .console select optgroup {
+  background-color: var(--c-paper);
+  color: var(--c-ink);
+}
+.console .field small, .console .field .dim { font-size: 12px; color: var(--c-faint); }
+.console .check input { accent-color: var(--c-ink); }
+
+/* ------------------------------------------------------------------ */
+/* tables — the thing a console actually is                            */
+/* ------------------------------------------------------------------ */
+
+.console table.tbl { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 14px; }
+.console table.tbl th {
+  background: transparent;
+  border-bottom: 1px solid var(--c-line);
+  color: var(--c-faint);
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .1em;
+  padding: 0 var(--c-3) var(--c-3);
+  text-align: left;
+}
+.console table.tbl td {
+  border-bottom: 1px solid var(--c-line-soft);
+  padding: var(--c-3);
+  vertical-align: middle;
+}
+.console table.tbl tr:last-child td { border-bottom: 0; }
+.console table.tbl tbody tr { transition: background .12s; }
+.console table.tbl tbody tr:hover { background: var(--c-panel); }
+.console table.tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.console .scroll-x { border-radius: var(--c-r); }
+
+/* ------------------------------------------------------------------ */
+/* modals, notes, misc                                                 */
+/* ------------------------------------------------------------------ */
+
+.console .modal-bg { background: rgba(23, 23, 23, .28); backdrop-filter: blur(3px); }
+.console .modal {
+  background: var(--c-paper);
+  border: 1px solid var(--c-line);
+  border-radius: var(--c-r-xl);
+  box-shadow: var(--c-shadow);
+}
+.console .modal .m-head { border-bottom: 1px solid var(--c-line); padding: var(--c-5); }
+.console .modal .m-body { padding: var(--c-5); }
+.console .modal .x { border-radius: var(--c-pill); color: var(--c-faint); }
+
+.console .form-note { border-radius: var(--c-r); border: 0; padding: var(--c-4); font-size: 14px; }
+.console .form-note.ok  { background: var(--c-ok-bg);   color: var(--c-ok); }
+.console .form-note.err { background: var(--c-err-bg);  color: var(--c-err); }
+
+.console .bar { background: var(--c-vellum); border-radius: var(--c-pill); }
+.console .bar i { background: var(--c-ink); border-radius: var(--c-pill); }
+
+.console .empty {
+  background: var(--c-panel);
+  border-radius: var(--c-r-lg);
+  color: var(--c-muted);
+  padding: var(--c-8) var(--c-5);
+}
+
+.console hr { border: 0; border-top: 1px solid var(--c-line); margin: var(--c-5) 0; }
+
+.console .steps .s { border-radius: var(--c-pill); border-color: var(--c-line); }
+.console .steps .s.on { background: var(--c-ink); border-color: var(--c-ink); color: #fff; }
+.console .steps .s.done { background: var(--c-vellum); color: var(--c-pewter); }
+
+.console .doc-row { background: var(--c-panel); border-radius: var(--c-r-sm); }
+.console .dropzone {
+  border: 1px dashed var(--c-stone);
+  border-radius: var(--c-r);
+  background: var(--c-panel);
+  color: var(--c-muted);
+}
+.console .dropzone:hover, .console .dropzone.over { border-color: var(--c-ink); color: var(--c-ink); }
+
+.console .timeline .ev { border-left: 1px solid var(--c-line); }
+.console .subnav a { color: var(--c-muted); text-transform: none; letter-spacing: 0; }
+.console .subnav a.on { color: var(--c-ink); border-bottom-color: var(--c-ink); }
+
+/* The demo login buttons on the sign-in card. */
+.console .demo-login { border-radius: var(--c-r-sm); border: 1px solid var(--c-line); background: var(--c-paper); }
+.console .demo-login:hover { border-color: var(--c-ink); background: var(--c-vellum); }
+
+/* Stock ageing buckets, priced-above flags — keep the muted status pair. */
+.console .err-text { color: var(--c-err); }
+
+/* ==================================================================
+   CHARTS
+   Inline SVG from charts.js. Colour comes from these custom properties
+   so the same markup works in both themes without knowing which it is in.
+   ================================================================== */
+
+.console .chart-wrap { width: 100%; }
+.console .chart-svg { width: 100%; display: block; height: 170px; }
+.console .spark-svg { width: 110px; height: 30px; display: block; }
+
+/* The reference's chart is a soft fill fading to nothing on one accent
+   stroke. Emerald, exactly as it uses for its "+8.4%" and its area fill. */
+.console .c-line   { stroke: var(--c-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.console .c-dot    { fill: var(--c-accent); stroke: var(--c-paper); stroke-width: 2.5; }
+.console .cg-from  { stop-color: var(--c-accent); stop-opacity: .22; }
+.console .cg-to    { stop-color: var(--c-accent); stop-opacity: 0; }
+
+.console .chart-axis {
+  display: flex; justify-content: space-between;
+  margin-top: var(--c-2);
+  font-size: 11px; color: var(--c-faint);
+  text-transform: uppercase; letter-spacing: .1em;
+}
+.console .chart-empty {
+  display: grid; place-items: center;
+  background: var(--c-panel); border-radius: var(--c-r);
+  color: var(--c-faint); font-size: 13px;
+  padding: var(--c-6);
+}
+
+/* --- the hero figure: big, light, with its movement beside it --- */
+.console .hero-stat {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) 1fr;
+  gap: var(--c-6);
+  align-items: center;
+  padding: var(--c-6);
+}
+.console .hero-v {
+  font-size: 52px; font-weight: 300; letter-spacing: -.04em; line-height: 1;
+  margin: var(--c-3) 0 var(--c-3);
+}
+.console .hero-sub { display: flex; align-items: center; gap: var(--c-3); flex-wrap: wrap; font-size: 13px; }
+.console .hero-stat-chart .chart-svg { height: 150px; }
+
+/* --- the delta pill, straight from the reference --- */
+.console .cdelta {
+  display: inline-flex; align-items: center; gap: 4px;
+  border-radius: var(--c-pill);
+  padding: 3px 10px;
+  font-size: 12px; font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  background: var(--c-vellum); color: var(--c-muted);
+}
+.console .cdelta.up   { background: var(--c-ok-bg);   color: var(--c-ok); }
+.console .cdelta.down { background: var(--c-err-bg);  color: var(--c-err); }
+
+.console .kpi-row { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--c-3); }
+.console .kpi-spark { opacity: .55; flex: none; }
+.console .kpi .d { display: flex; align-items: center; gap: var(--c-2); flex-wrap: wrap; }
+
+/* --- horizontal bars --- */
+.console .cbars { display: grid; gap: var(--c-4); margin-top: var(--c-3); }
+.console .cbar-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--c-3); margin-bottom: 6px; }
+.console .cbar-label { font-size: 14px; }
+.console .cbar-value { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.console .cbar-track { height: 6px; background: var(--c-vellum); border-radius: var(--c-pill); overflow: hidden; }
+.console .cbar-track i { display: block; height: 100%; background: var(--c-ink); border-radius: var(--c-pill); }
+.console .cbar-note { font-size: 12px; color: var(--c-faint); margin-top: 4px; }
+
+/* --- donut --- */
+.console .cdonut { display: flex; gap: var(--c-6); align-items: center; flex-wrap: wrap; margin-top: var(--c-3); }
+.console .cdonut-svg { width: 160px; height: 160px; flex: none; }
+.console .cdonut-total {
+  text-anchor: middle; font-size: 26px; font-weight: 300;
+  fill: var(--c-ink); letter-spacing: -.02em;
+}
+.console .cdonut-caption {
+  text-anchor: middle; font-size: 9px; fill: var(--c-faint);
+  text-transform: uppercase; letter-spacing: .14em;
+}
+.console .cdonut-key { display: grid; gap: 9px; flex: 1; min-width: 200px; }
+.console .ckey { display: flex; align-items: center; gap: var(--c-2); font-size: 13px; }
+.console .ckey-dot { width: 9px; height: 9px; border-radius: var(--c-pill); flex: none; }
+.console .ckey-label { flex: 1; color: var(--c-pewter); }
+.console .ckey-value { font-variant-numeric: tabular-nums; color: var(--c-muted); }
+
+/* One tone scale shared by the donut rings and their key dots. */
+.console .tone-ok   { stroke: var(--c-ok);   background: var(--c-ok); }
+.console .tone-warn { stroke: var(--c-warn); background: var(--c-warn); }
+.console .tone-err  { stroke: var(--c-err);  background: var(--c-err); }
+.console .tone-info { stroke: var(--c-info); background: var(--c-info); }
+.console .tone-ink  { stroke: var(--c-ink);  background: var(--c-ink); }
+.console .tone-ash  { stroke: var(--c-stone); background: var(--c-stone); }
+
+@media (max-width: 900px) {
+  .console .hero-stat { grid-template-columns: 1fr; }
+  .console .hero-v { font-size: 40px; }
+}
+
+/* ==================================================================
+   DARK
+   Not an inversion of the light palette — inverting ink-on-paper gives
+   you grey mud. This is taken from the reference's OWN dark surfaces:
+   the #0A0A0A dashboard canvas, its white/5 and white/10 hairlines, its
+   zinc-500 secondary text, and the emerald it uses for the delta pill
+   and the chart fill.
+   ================================================================== */
+
+.console {
+  /* The accent lives outside the theme blocks so both inherit it. */
+  --c-accent: #059669;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .console {
+    --c-ink: #f4f4f5;
+    --c-paper: #0a0a0a;
+    --c-vellum: #1c1c1e;
+    --c-panel: #131315;
+    --c-hover: #26262a;
+    --c-carbon: #eaeaea;
+
+    --c-line: rgba(255, 255, 255, .10);
+    --c-line-soft: rgba(255, 255, 255, .06);
+    --c-muted: #a1a1aa;
+    --c-faint: #71717a;
+    --c-pewter: #d4d4d8;
+    --c-stone: #52525b;
+
+    --c-accent: #34d399;
+
+    --c-ok: #34d399;   --c-ok-bg: rgba(52, 211, 153, .12);
+    --c-warn: #fbbf24; --c-warn-bg: rgba(251, 191, 36, .12);
+    --c-err: #f87171;  --c-err-bg: rgba(248, 113, 113, .12);
+    --c-info: #60a5fa; --c-info-bg: rgba(96, 165, 250, .12);
+
+    --c-shadow-sm: 0 1px 2px rgba(0, 0, 0, .5);
+    --c-shadow: 0 1px 3px rgba(0, 0, 0, .5), 0 24px 48px -28px rgba(0, 0, 0, .8);
+  }
+
+  /* A few places name a colour rather than a token, because on paper they
+     were literally black or white. Those have to flip by hand. */
+  html:not([data-theme="light"]) .console .topbar { background: rgba(10, 10, 10, .82); }
+  html:not([data-theme="light"]) .console .logo .mark,
+  html:not([data-theme="light"]) .console .btn.primary,
+  html:not([data-theme="light"]) .console .pill.on,
+  html:not([data-theme="light"]) .console .sidebar-admin a.on,
+  html:not([data-theme="light"]) .console .tag.brand,
+  html:not([data-theme="light"]) .console .steps .s.on { background: var(--c-ink); color: #0a0a0a; border-color: var(--c-ink); }
+  html:not([data-theme="light"]) .console .btn.primary:hover { background: #fff; border-color: #fff; }
+  html:not([data-theme="light"]) .console .cbar-track i,
+  html:not([data-theme="light"]) .console .bar i { background: var(--c-ink); }
+  html:not([data-theme="light"]) .console .modal-bg { background: rgba(0, 0, 0, .62); }
+  html:not([data-theme="light"]) .console .c-dot { stroke: var(--c-paper); }
+  html:not([data-theme="light"]) .console .cg-from { stop-opacity: .3; }
+}
+
+/* The theme toggle in the header sets data-theme, and it must beat the
+   media query in BOTH directions — the same rule the storefront follows. */
+html[data-theme="dark"] .console {
+  --c-ink: #f4f4f5;
+  --c-paper: #0a0a0a;
+  --c-vellum: #1c1c1e;
+  --c-panel: #131315;
+  --c-hover: #26262a;
+  --c-line: rgba(255, 255, 255, .10);
+  --c-line-soft: rgba(255, 255, 255, .06);
+  --c-muted: #a1a1aa;
+  --c-faint: #71717a;
+  --c-pewter: #d4d4d8;
+  --c-stone: #52525b;
+  --c-accent: #34d399;
+  --c-ok: #34d399;   --c-ok-bg: rgba(52, 211, 153, .12);
+  --c-warn: #fbbf24; --c-warn-bg: rgba(251, 191, 36, .12);
+  --c-err: #f87171;  --c-err-bg: rgba(248, 113, 113, .12);
+  --c-info: #60a5fa; --c-info-bg: rgba(96, 165, 250, .12);
+  --c-shadow-sm: 0 1px 2px rgba(0, 0, 0, .5);
+  --c-shadow: 0 1px 3px rgba(0, 0, 0, .5), 0 24px 48px -28px rgba(0, 0, 0, .8);
+}
+html[data-theme="dark"] .console .topbar { background: rgba(10, 10, 10, .82); }
+html[data-theme="dark"] .console .logo .mark,
+html[data-theme="dark"] .console .btn.primary,
+html[data-theme="dark"] .console .pill.on,
+html[data-theme="dark"] .console .sidebar-admin a.on,
+html[data-theme="dark"] .console .tag.brand,
+html[data-theme="dark"] .console .steps .s.on { background: var(--c-ink); color: #0a0a0a; border-color: var(--c-ink); }
+html[data-theme="dark"] .console .btn.primary:hover { background: #fff; border-color: #fff; }
+html[data-theme="dark"] .console .cbar-track i,
+html[data-theme="dark"] .console .bar i { background: var(--c-ink); }
+html[data-theme="dark"] .console .modal-bg { background: rgba(0, 0, 0, .62); }
+html[data-theme="dark"] .console .c-dot { stroke: var(--c-paper); }
+html[data-theme="dark"] .console .cg-from { stop-opacity: .3; }
+
+@media (max-width: 900px) {
+  .console #view { padding: var(--c-5) var(--c-4); }
+  .console .sidebar-admin { width: 100%; min-height: 0; border-right: 0; border-bottom: 1px solid var(--c-line); }
+  .console #shell { flex-direction: column; }
+}

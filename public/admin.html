@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MotoKE — staff console</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+<link rel="stylesheet" href="/css/app.css">
+<!-- Layered after app.css and scoped to body.console, so the storefront
+     keeps the Lamborghini system and only the back office changes. -->
+<link rel="stylesheet" href="/css/console.css">
+</head>
+<body class="console">
+<script src="js/boot-guard.js"></script>
+
+
+<header class="topbar">
+  <div class="wrap" style="max-width:none">
+    <a class="logo" href="#/">
+      <span class="mark" id="brandMark">MK</span>
+      <span><span id="brandName">MotoKE</span><span class="sub">staff console</span></span>
+    </a>
+    <div class="row" style="margin-left:auto;gap:10px" id="topRight"></div>
+  </div>
+</header>
+
+<div style="display:flex;align-items:flex-start" id="shell">
+  <nav class="sidebar-admin hide" id="side"></nav>
+  <main id="view" style="flex:1;padding:22px 26px;min-width:0"></main>
+</div>
+
+<script src="/js/core.js"></script>
+<script src="/js/charts.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

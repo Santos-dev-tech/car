@@ -1,0 +1,249 @@
+rules_version = '2';
+
+/**
+ * MotoKE — Firestore security rules.
+ *
+ * The governing idea: the browser may READ the shop and WRITE the things a customer
+ * genuinely owns. It may never write a price, a loan decision, a status, or anything
+ * derived from money. Those come from the server, which holds the finance engine and
+ * the encryption key.
+ *
+ * Roles live in CUSTOM CLAIMS, set with the Admin SDK on the server. A client cannot
+ * grant itself a claim, which is the whole reason we use them instead of a role field
+ * in a user document that the user can edit.
+ *
+ * Default is deny. Every allowance below is deliberate.
+ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* ------------------------------------------------------------------ */
+    /* who is asking                                                       */
+    /* ------------------------------------------------------------------ */
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function uid() {
+      return request.auth.uid;
+    }
+    function role() {
+      return signedIn() ? request.auth.token.get('role', '') : '';
+    }
+    function isStaff() {
+      return role() in ['agent', 'dealer_admin', 'superadmin'];
+    }
+    function isAdmin() {
+      return role() in ['dealer_admin', 'superadmin'];
+    }
+    function isSuper() {
+      return role() == 'superadmin';
+    }
+
+    /* One dealership per install. Staff reach their own yard and nobody else's;
+       only a superadmin crosses that line. This is the rule that stopped a Summit
+       customer pulling a Highland offer letter in the SQLite build. */
+    function ownsDealer(dealerId) {
+      return isSuper() || (isStaff() && request.auth.token.get('dealerId', '') == dealerId);
+    }
+
+    function ownsDoc(field) {
+      return signedIn() && resource.data.get(field, '') == uid();
+    }
+    function creatingAsSelf(field) {
+      return signedIn() && request.resource.data.get(field, '') == uid();
+    }
+
+    /* An update that touches ONLY these keys. Anything else in the write is refused,
+       so a customer editing their phone number cannot smuggle in an approved amount. */
+    function onlyTouches(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+    function keeps(field) {
+      return request.resource.data.get(field, null) == resource.data.get(field, null);
+    }
+
+    function isString(v, max) {
+      return v is string && v.size() > 0 && v.size() <= max;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* the shop — public to read, staff to change                          */
+    /* ------------------------------------------------------------------ */
+
+    match /dealers/{dealerId} {
+      allow read: if true;
+      allow write: if ownsDealer(dealerId) && isAdmin();
+
+      match /branches/{branchId} {
+        allow read: if true;
+        allow write: if ownsDealer(dealerId) && isAdmin();
+      }
+    }
+
+    match /vehicles/{vehicleId} {
+      /* A draft is stock the yard has not published. It must not be visible to
+         anyone browsing, or the site leaks cars before they are priced. */
+      allow read: if resource.data.get('status', 'draft') != 'draft'
+                  || ownsDealer(resource.data.get('dealerId', ''));
+
+      allow create: if isStaff() && ownsDealer(request.resource.data.get('dealerId', ''));
+      allow update: if isStaff() && ownsDealer(resource.data.get('dealerId', ''))
+                    && keeps('dealerId');           /* a car cannot be moved between yards */
+      allow delete: if isAdmin() && ownsDealer(resource.data.get('dealerId', ''));
+    }
+
+    match /lenders/{lenderId} {
+      allow read: if resource.data.get('active', false) == true || isStaff();
+      /* Rates decide what a customer pays. Only a superadmin touches them, and the
+         server audits every change. */
+      allow write: if isSuper();
+    }
+
+    match /dealerLenders/{linkId} {
+      allow read: if true;
+      allow write: if isAdmin() && ownsDealer(request.resource.data.get('dealerId', ''));
+    }
+
+    /* Split deliberately: the browser needs opening hours and fuel prices, it does not
+       need the M-Pesa shortcode or whether demo mode is on. */
+    match /settings/public {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /settings/{document} {
+      allow read, write: if false;   /* server only, via the Admin SDK */
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* people                                                              */
+    /* ------------------------------------------------------------------ */
+
+    match /users/{userId} {
+      allow read: if uid() == userId || isStaff();
+
+      /* A person creates their own profile and may edit only these fields. Note what
+         is absent: role, dealerId, verified. Those are claims and server state — if a
+         customer could write them here, they would promote themselves. */
+      allow create: if uid() == userId
+                    && isString(request.resource.data.get('name', ''), 120)
+                    && request.resource.data.keys().hasOnly(['name', 'phone', 'email', 'createdAt']);
+      allow update: if uid() == userId
+                    && onlyTouches(['name', 'phone', 'email', 'photoUrl', 'updatedAt']);
+      allow delete: if false;        /* deleting a person unlinks their applications */
+
+      /* Saved cars. Entirely the customer's own, and worth nothing to anyone else. */
+      match /saved/{vehicleId} {
+        allow read, write: if uid() == userId;
+      }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* applications — the part with money in it                            */
+    /* ------------------------------------------------------------------ */
+
+    match /applications/{applicationId} {
+      allow read: if ownsDoc('applicantUid')
+                  || (isStaff() && ownsDealer(resource.data.get('dealerId', '')));
+
+      /* A customer may START an application. Two things are forced at creation:
+         it belongs to them, and it begins as 'new'. They cannot file a
+         pre-approved application. */
+      allow create: if creatingAsSelf('applicantUid')
+                    && request.resource.data.get('status', '') == 'new'
+                    && !request.resource.data.keys().hasAny([
+                         'approvedAmount', 'monthlyPayment', 'apr', 'offerLetterRef',
+                         'idNumber', 'kraPin', 'dob'
+                       ]);
+
+      /* After that, a customer may only correct their contact details. Every figure
+         that decides what they pay is off limits from the browser — the server writes
+         those with the Admin SDK, which is not bound by these rules. */
+      allow update: if (ownsDoc('applicantUid')
+                        && resource.data.get('status', '') == 'new'
+                        && onlyTouches(['phone', 'email', 'notes', 'updatedAt']))
+                    || (isStaff() && ownsDealer(resource.data.get('dealerId', ''))
+                        && keeps('applicantUid'));
+
+      allow delete: if false;        /* a credit application is a record, not a draft */
+
+      /* Identity documents. Encrypted at rest by the server; the browser never gets
+         the key, so it never reads them back. Upload and forget. */
+      match /documents/{documentId} {
+        allow read: if isStaff() && ownsDealer(get(/databases/$(database)/documents/applications/$(applicationId)).data.get('dealerId', ''));
+        allow create: if signedIn()
+                      && get(/databases/$(database)/documents/applications/$(applicationId)).data.get('applicantUid', '') == uid();
+        allow update, delete: if false;
+      }
+    }
+
+    match /prequalifications/{prequalId} {
+      allow read: if ownsDoc('applicantUid')
+                  || (isStaff() && ownsDealer(resource.data.get('dealerId', '')));
+      allow create: if creatingAsSelf('applicantUid');
+      allow update, delete: if false;   /* the server recomputes; nobody edits a result */
+    }
+
+    /* Quotes are the finance engine's output. Written by the server, read by the person
+       they were run for. A quote the client could write is a price the client set. */
+    match /quotes/{quoteId} {
+      allow read: if ownsDoc('applicantUid') || isStaff();
+      allow write: if false;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* leads — the one place a stranger may write                          */
+    /* ------------------------------------------------------------------ */
+
+    match /leads/{leadId} {
+      /* Anyone can send an enquiry, signed in or not. Nobody can read them back —
+         a lead list is a list of phone numbers, and that is exactly what gets scraped. */
+      allow read: if isStaff() && ownsDealer(resource.data.get('dealerId', ''));
+      allow create: if isString(request.resource.data.get('name', ''), 120)
+                    && isString(request.resource.data.get('phone', ''), 24)
+                    && request.resource.data.get('message', '').size() <= 1000
+                    && request.resource.data.keys().hasOnly([
+                         'name', 'phone', 'email', 'message', 'vehicleId',
+                         'dealerId', 'kind', 'utm', 'createdAt'
+                       ]);
+      allow update: if isStaff() && ownsDealer(resource.data.get('dealerId', ''));
+      allow delete: if isAdmin() && ownsDealer(resource.data.get('dealerId', ''));
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* money and evidence — server only, no exceptions                     */
+    /* ------------------------------------------------------------------ */
+
+    match /orders/{orderId} {
+      allow read: if ownsDoc('customerUid')
+                  || (isStaff() && ownsDealer(resource.data.get('dealerId', '')));
+      allow write: if false;         /* deposits are computed server-side from the car's price */
+    }
+
+    /* A payment event is what Safaricom told us. If the client could write one, it
+       could mark its own booking paid. */
+    match /paymentEvents/{eventId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    /* An audit log a user can edit is not an audit log. */
+    match /auditLog/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /sessions/{sessionId} {
+      allow read, write: if false;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* everything else                                                     */
+    /* ------------------------------------------------------------------ */
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

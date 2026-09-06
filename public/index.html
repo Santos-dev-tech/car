@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MotoKE — buy and finance your next car</title>
+<meta name="description" content="Pick a car, compare financing from banks, microfinance and saccos, and apply online.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+<script src="js/boot-guard.js"></script>
+
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="logo" href="#/">
+      <span class="mark" id="brandMark">MK</span>
+      <span>
+        <span id="brandName">MotoKE</span>
+        <span class="sub" id="brandTag">vehicle sales &amp; asset finance</span>
+      </span>
+    </a>
+    <nav class="nav" id="nav">
+      <a href="#/">Home</a>
+      <a href="#/browse">Inventory</a>
+      <a href="#/financing">Financing</a>
+      <a href="#/sell">Sell your car</a>
+      <a href="#/about">About</a>
+      <a href="#/contact">Contact</a>
+      <a href="#/track">Track</a>
+      <a href="#/account" id="navAccount">Sign in</a>
+    </nav>
+    <div class="row" id="chromeSlot" style="gap:8px"></div>
+  </div>
+</header>
+
+<main id="view" class="wrap" style="min-height:60vh;padding-bottom:40px" tabindex="-1"></main>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="row wrap-r between" style="align-items:flex-start;gap:28px">
+      <div>
+        <strong id="footName">MotoKE</strong> — <span id="footTag"></span><br>
+        <span id="footContact"></span>
+        <div class="mt"><a href="#/browse">Inventory</a> · <a href="#/financing">Financing</a> ·
+          <a href="#/sell">Sell your car</a> · <a href="#/track">Track an application</a> ·
+          <a href="#/financing/faq">FAQs</a> · <a href="#/privacy">Privacy</a></div>
+      </div>
+      <div class="dim" style="max-width:46ch;font-size:.8rem">
+        <div id="footUpdated" style="margin-bottom:8px"></div>
+        Demonstration platform. The dealership, lenders, rates and fees shown here are sample data
+        for illustration and must be replaced with the institution's own published terms before use.
+        <div style="margin-top:8px"><a href="/admin" id="adminLink">Staff console →</a></div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- Vendored from Google's CDN, served from our own origin so script-src stays 'self'
+     and the site still runs with no internet. See public/vendor/firebase/MANIFEST.md.
+     `defer` keeps them off the critical path; MotoKEAuth.init() runs after bootstrap. -->
+<!-- Smooth scrolling is off by default and loads its library only if switched on.
+     See the comment at the top of smooth-scroll.js for why native scrolling wins here. -->
+<script defer src="/js/smooth-scroll.js"></script>
+<script defer src="/vendor/firebase/firebase-app-compat.js"></script>
+<script defer src="/vendor/firebase/firebase-auth-compat.js"></script>
+<script defer src="/js/firebase-auth.js"></script>
+<script src="/js/core.js"></script>
+<script src="/js/store.js"></script>
+</body>
+</html>

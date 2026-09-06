@@ -1,0 +1,35 @@
+# MotoKE — nothing secret or generated is ever committed.
+
+# Encryption key and the database that holds customer data
+data/
+!data/.gitkeep
+*.db
+*.db-wal
+*.db-shm
+.secret
+
+# Environment / credentials
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Local scratch
+_shots/
+tmp/
+*.local
