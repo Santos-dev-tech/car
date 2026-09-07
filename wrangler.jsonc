@@ -1,0 +1,47 @@
+{
+  // MotoKE on Cloudflare Containers.
+  //
+  // A Worker sits in front and forwards every request to a container running the
+  // Node app unchanged. That is the only Cloudflare shape that fits: Workers alone
+  // cannot run this, because node:sqlite is synchronous and D1 is not — porting
+  // would mean rewriting 236 database call sites and making the whole codebase
+  // async. The container runs the app exactly as it runs locally.
+  //
+  // Requires the $5/month Workers Paid plan; containers are not on the free tier.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "motoke",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "containers": [
+    {
+      "class_name": "MotoKEContainer",
+      "image": "./Dockerfile",
+      // 1 GiB. The app itself is small, but SQLite caches pages in memory and
+      // the image library is held for the SVG endpoint.
+      "instance_type": "basic",
+      "max_instances": 2
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MOTOKE",
+        "class_name": "MotoKEContainer"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["MotoKEContainer"]
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+}

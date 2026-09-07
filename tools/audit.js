@@ -112,18 +112,44 @@ if (fs.existsSync(path.join(ROOT, 'node_modules'))) {
   meh('node_modules exists', 'confirm it is gitignored');
 } else ok('no node_modules directory');
 
-// every require() must resolve to a node: builtin or a local file
+/* Every import must resolve to a node: builtin or a local file.
+ *
+ * One documented exception: `worker.js` is the Cloudflare deploy adapter. It runs
+ * at the edge, never inside the application, and it needs Cloudflare's Container
+ * class. The claim being defended is "the APPLICATION has zero runtime
+ * dependencies" — so the exception is named here rather than left to a regex that
+ * happens not to look at `import`. */
 const BUILTIN = /^node:/;
+const DEPLOY_ONLY = { 'worker.js': ['@cloudflare/containers'] };
 let foreign = [];
 for (const f of files.filter((f) => f.endsWith('.js'))) {
   const text = fs.readFileSync(f, 'utf8');
-  for (const m of text.matchAll(/require\(['"]([^'"]+)['"]\)/g)) {
-    const mod = m[1];
-    if (!BUILTIN.test(mod) && !mod.startsWith('.') && !mod.startsWith('/')) foreign.push(`${rel(f)} → ${mod}`);
+  const allowed = DEPLOY_ONLY[rel(f)] || [];
+  const specifiers = [
+    ...[...text.matchAll(/require\(['"]([^'"]+)['"]\)/g)].map((m) => m[1]),
+    ...[...text.matchAll(/^\s*import\s[^'"]*from\s*['"]([^'"]+)['"]/gm)].map((m) => m[1]),
+  ];
+  for (const mod of specifiers) {
+    if (BUILTIN.test(mod) || mod.startsWith('.') || mod.startsWith('/')) continue;
+    if (allowed.includes(mod)) continue;
+    foreign.push(`${rel(f)} → ${mod}`);
   }
 }
 if (foreign.length) bad('non-builtin imports found', foreign.slice(0, 5).join('; '));
-else ok('every import is a node: builtin or a local file');
+else ok('the application imports only node: builtins and its own files', 'the deploy adapter is the one named exception');
+
+/* The exception must stay an exception: nothing the app actually serves may
+   reach for the deploy adapter's dependency. */
+/* audit.js is excluded for the same reason it is excluded from the secret scan:
+   it has to name the thing it is looking for. */
+const appFiles = files.filter(
+  (f) => /\.js$/.test(f) && !/^worker\.js$/.test(rel(f)) && !/^tools\/audit\.js$/.test(rel(f))
+);
+if (appFiles.some((f) => /@cloudflare\//.test(fs.readFileSync(f, 'utf8')))) {
+  bad('the app itself depends on Cloudflare', 'it must still run on a plain Node host with no changes');
+} else {
+  ok('nothing in the app itself depends on Cloudflare', 'it still runs on any plain Node host');
+}
 
 /* ------------------------------------------------- 3. controls -------- */
 console.log('\n· security controls');

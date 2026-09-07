@@ -1,0 +1,28 @@
+# Never bake the database or the encryption key into an image. The image is
+# pushed to a registry; anything in it is as public as the registry is.
+data/
+*.db
+*.db-wal
+*.db-shm
+.secret
+.env
+.env.*
+
+# Not needed at runtime
+.git/
+research/
+_shots/
+tools/generate-photos.js
+tools/generate-gallery.js
+tools/optimise-photos.py
+tools/probe-fuel-source.js
+
+# Docs are small, but the image does not serve them
+PITCH.md
+BACKLOG.md
+TASKS.md
+CLAUDE.md
+DEPLOY.md
+START.bat
+Dockerfile
+.dockerignore

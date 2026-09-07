@@ -364,7 +364,12 @@ setInterval(() => {
   }
 }, 3600_000).unref?.();
 
-server.listen(PORT, () => {
+/* Inside a container the process must accept connections from outside its own
+   namespace, and 127.0.0.1 does not. Locally the default stays loopback so a dev
+   machine is not quietly serving the whole network. */
+const HOST = process.env.HOST || (process.env.MOTOKE_CONTAINER ? '0.0.0.0' : '127.0.0.1');
+
+server.listen(PORT, HOST, () => {
   const line = (s) => console.log('  ' + s);
   console.log('\n\x1b[1m  MotoKE\x1b[0m — vehicle sales + asset finance platform');
   console.log('  ' + '-'.repeat(58));
