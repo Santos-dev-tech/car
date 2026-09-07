@@ -33,3 +33,6 @@ Thumbs.db
 _shots/
 tmp/
 *.local
+
+# Local tooling binaries, never committed
+.tools/
