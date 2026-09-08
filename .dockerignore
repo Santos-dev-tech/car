@@ -25,4 +25,5 @@ CLAUDE.md
 DEPLOY.md
 START.bat
 Dockerfile
+Dockerfile.fly
 .dockerignore

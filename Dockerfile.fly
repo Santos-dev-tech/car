@@ -1,0 +1,33 @@
+# MotoKE — container image for Fly.io
+#
+# Almost the same as `Dockerfile` (Cloudflare), with one difference that matters:
+# Fly mounts a persistent volume over /app/data, and a freshly created volume is
+# owned by root. The app runs as `node`, so it would fail its first write — which
+# on this app means "cannot create the database" and a boot loop.
+#
+# The entrypoint therefore starts as root, fixes the ownership of the mount, and
+# drops to `node` before exec'ing the server. Nothing runs as root but the chown.
+
+FROM node:22-slim
+
+WORKDIR /app
+
+# Source only. .dockerignore keeps the database, the encryption key, the
+# generated photographs and the research notes out of the image.
+COPY . .
+
+RUN mkdir -p /app/data && chown -R node:node /app
+
+# Tells server.js to bind 0.0.0.0 rather than loopback. HTTPS enforcement still
+# works behind Fly's proxy: sec.isHttps() reads x-forwarded-proto, which Fly sets.
+ENV MOTOKE_CONTAINER=1
+ENV NODE_ENV=production
+ENV PORT=8080
+EXPOSE 8080
+
+# A real file rather than a Dockerfile heredoc, so it can be read and tested
+# outside the build. CRLF is stripped because this repo is edited on Windows and
+# a shebang followed by \r fails with a bare "not found" that names the wrong thing.
+RUN sed -i 's/\r$//' /app/tools/fly-start.sh && chmod +x /app/tools/fly-start.sh
+
+CMD ["/app/tools/fly-start.sh"]

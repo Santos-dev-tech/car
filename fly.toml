@@ -1,0 +1,50 @@
+# MotoKE on Fly.io
+#
+# Johannesburg is the closest region Fly has to Nairobi — roughly 60ms, against
+# 200ms+ from Europe. That is the difference between a demo that feels local and
+# one that feels remote while a dealer is watching.
+#
+# ONE MACHINE ONLY. The database is a SQLite file on the attached volume, and a
+# volume belongs to a single machine. A second machine would be a second, empty
+# database, and a customer would watch their application appear and disappear
+# depending on which one answered. Do not scale this past 1 without moving the
+# database off the volume first.
+
+app = "motoke-demo"
+primary_region = "jnb"
+
+[build]
+  dockerfile = "Dockerfile.fly"
+
+[env]
+  MOTOKE_CONTAINER = "1"
+  NODE_ENV = "production"
+  PORT = "8080"
+
+# Where the SQLite database and the AES key live. This is the whole reason for
+# choosing Fly over Cloudflare Containers: an application submitted on Monday is
+# still there on Tuesday.
+[[mounts]]
+  source = "motoke_data"
+  destination = "/app/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Suspend rather than stop: the machine keeps its memory image, so waking it
+  # takes well under a second instead of a cold Node boot. An idle demo costs
+  # nothing, and the first dealer to open the link does not watch it start.
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/api/fuel"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
