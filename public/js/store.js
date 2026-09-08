@@ -510,6 +510,101 @@
     </article>`;
   }
 
+  /* ---------------- showcase view ---------------- */
+
+  /**
+   * Kenyan stock lists paint by name, never as a hex code, and the names are marketing
+   * names — "Soul Red", "Machine Grey", "Urban Khaki". These cover what is actually in
+   * the yard; anything unrecognised falls back to the dealership's own colour, which is
+   * always a safe answer rather than a wrong one.
+   */
+  const CAR_PAINT = {
+    white: '#dcdcde', 'pearl white': '#e2ded6', 'white pearl': '#e2ded6',
+    'glacier white': '#dfe3e4', 'crystal white': '#e4e4e6', 'alpine white': '#e8e8ea',
+    'carrara white': '#e6e3dd', 'white orchid': '#e4e0dc',
+    silver: '#b4b7ba', 'lunar silver': '#a9adb2', 'iridium silver': '#9fa3a8',
+    'cool silver': '#b8bcc0', 'sonic titanium': '#8e9396',
+    grey: '#6f7276', gray: '#6f7276', 'storm grey': '#5c6064', 'selenite grey': '#63676b',
+    'machine grey': '#4c5155', 'mineral grey': '#5a5f63', 'ammonite grey': '#71757a',
+    graphite: '#45484c', 'gun metallic': '#4a4e52',
+    black: '#232326', 'santorini black': '#1c1c1f', 'precious black': '#1d1d20',
+    'obsidian black': '#1a1a1d',
+    red: '#b31b26', 'soul red': '#8f1420', 'tornado red': '#c01722', 'firenze red': '#96131f',
+    blue: '#1f4e87', 'deep blue': '#173a63', 'dark blue': '#152f52', 'lagoon blue': '#2a6b8e',
+    orange: '#c85a1b', bronze: '#8a6135', beige: '#c3b394', cream: '#ddd3bd',
+    purple: '#4d2c5e', mint: '#9ec9b6', 'kinetic yellow': '#d8a417', 'urban khaki': '#7d7657',
+  };
+
+  /**
+   * The car's own paint, as a hex we can put behind a button — but only when it will
+   * actually read as a button.
+   *
+   * The reference sells this idea on a slate-blue Mustang and a red Lexus. Kenyan stock
+   * is not that: 22 of the 77 cars in this yard are white or silver, and Carrara White on
+   * the light stage is a near-invisible button on a near-invisible background. So the
+   * paint is used only when it clears 2.5:1 against the stage it sits on, and otherwise
+   * the button falls back to the dealership's own colour. A button you cannot see is
+   * worse than a button that is not the same colour as the car.
+   */
+  const PAINT_MIN_CONTRAST = 2.5;
+
+  function paintOf(v) {
+    const name = String(v.color || '').trim().toLowerCase();
+    const hex = CAR_PAINT[name];
+    if (!hex) return null;
+    const stage = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    return contrastRatio(hex, stage) >= PAINT_MIN_CONTRAST ? hex : null;
+  }
+
+  /**
+   * One car, full stage. The model name is set enormous and ghosted behind the car; the
+   * primary button takes the car's own paint.
+   *
+   * The ghosted name is aria-hidden because it repeats the heading immediately above it,
+   * and a screen reader announcing the model twice is noise, not emphasis.
+   */
+  function showcaseSlide(v, i, total) {
+    const paint = paintOf(v);
+    const monthly = estimateMonthly(v.price);
+    const saved = S.saved.includes(v.id);
+    const s = v.specs || {};
+    const model = `${v.model || ''}`.trim();
+    return `<article class="showcase-slide" data-vid="${v.id}">
+      <div class="sc-flags">
+        ${v.status === 'available' ? '<span class="tag ok">Available</span>' : `<span class="tag err">${esc(titleCase(v.status))}</span>`}
+        ${v.condition === 'new' ? '<span class="tag brand">Brand new</span>' : ''}
+        ${v.featured ? '<span class="tag warn">Featured</span>' : ''}
+      </div>
+
+      <h2 class="sc-brand">${esc(v.make)}</h2>
+      <div class="sc-model" aria-hidden="true">${esc(model)}</div>
+      <a href="#/vehicle/${v.id}" aria-label="${esc(v.title)}">
+        <img class="sc-shot" src="${esc(vehImg(v))}" alt="${esc(v.title)}">
+      </a>
+
+      <div class="sc-price">${KES(v.price)}<span class="from">from ${KES(monthly)} / month with financing</span></div>
+      <div class="sc-meta">${v.year} · ${num(v.mileage_km)} km · ${esc(v.transmission || '')} · ${esc(v.fuel || '')}</div>
+
+      <div class="sc-cta">
+        <a class="btn primary" href="#/finance/${v.id}">Finance this car</a>
+        <a class="btn" href="#/vehicle/${v.id}">Details</a>
+        ${v.status === 'available' ? `<a class="btn ok" href="#/reserve/${v.id}">Reserve</a>` : ''}
+        <a class="btn wa" href="${esc(waVehicle(v))}" target="_blank" rel="noopener">WhatsApp</a>
+        <button class="btn" data-save="${v.id}" title="Save">${saved ? '♥' : '♡'}</button>
+      </div>
+
+      <div class="sc-specs">
+        ${s.hp ? `<div><div class="lbl">Power</div><div class="v">${s.hp} hp</div></div>` : ''}
+        ${s.zeroTo100 ? `<div><div class="lbl">0–100</div><div class="v">${s.zeroTo100}s</div></div>` : ''}
+        ${s.rimSize ? `<div><div class="lbl">Rims</div><div class="v">${s.rimSize}"</div></div>` : ''}
+        ${v.color ? `<div><div class="lbl">Paint</div><div class="v">${esc(v.color)}</div></div>` : ''}
+      </div>
+
+      <div class="sc-count">${i + 1} / ${total}</div>
+      <span hidden data-paint="${paint || ''}"></span>
+    </article>`;
+  }
+
   /**
    * Save this search and be told when something matching arrives.
    *
@@ -1053,6 +1148,10 @@
           <div class="row between wrap-r mb">
             <div id="count" class="muted">Loading…</div>
             <div class="row">
+              <div class="pills" id="viewToggle" role="group" aria-label="How to show the stock">
+                <button class="pill" data-view="showcase" aria-pressed="false">Showcase</button>
+                <button class="pill" data-view="grid" aria-pressed="false">Grid</button>
+              </div>
               <button class="btn sm ghost" data-act="save-search" title="Tell me when a car like this arrives">♢ Alert me</button>
               ${S.compare.length ? `<a class="btn sm" href="#/compare">Compare (${S.compare.length})</a>` : ''}
               <select id="sort" style="width:auto">
@@ -1064,6 +1163,12 @@
                 <option value="popular">Most viewed</option>
               </select>
             </div>
+          </div>
+          <div class="showcase" id="showcase" hidden>
+            <button class="sc-arrow sc-prev" id="scPrev" aria-label="Previous car">❮</button>
+            <div id="scStage" aria-live="polite"></div>
+            <button class="sc-arrow sc-next" id="scNext" aria-label="Next car">❯</button>
+            <div class="sc-dots" id="scDots"></div>
           </div>
           <div class="veh-grid" id="results"><div class="spinner"></div></div>
           <div class="row center mt-lg" id="pager" style="justify-content:center"></div>
@@ -1085,6 +1190,59 @@
       history.replaceState(null, '', '#/browse' + (qs ? '?' + qs : ''));
     };
 
+    /* ---- showcase state ----
+       The showcase is a way of LOOKING at the same result set, not a second source of
+       truth. It renders whatever loadResults() last fetched, so every filter, the sort
+       and the pager keep working untouched. The choice is remembered per browser. */
+    let pageItems = [];
+    let scIndex = 0;
+    let scView = store.get('browseView', 'showcase');
+
+    function renderShowcase() {
+      const stage = $('#scStage');
+      const dots = $('#scDots');
+      if (!stage) return;
+      if (!pageItems.length) {
+        stage.innerHTML = `<div class="empty">Nothing matches those filters. <button class="btn sm mt" data-act="clear-filters">Clear filters</button></div>`;
+        dots.innerHTML = '';
+        return;
+      }
+      scIndex = Math.max(0, Math.min(scIndex, pageItems.length - 1));
+      const v = pageItems[scIndex];
+      stage.innerHTML = showcaseSlide(v, scIndex, pageItems.length);
+
+      /* The car's own paint drives the primary button. Set on the showcase element, not
+         on :root, so it can never leak into the rest of the page. Falls back to --brand
+         when the paint name is one we do not have a hex for. */
+      const paint = paintOf(v);
+      const sc = $('#showcase');
+      if (paint) {
+        sc.style.setProperty('--car-accent', paint);
+        sc.style.setProperty('--car-accent-ink', readableInk(paint));
+      } else {
+        sc.style.removeProperty('--car-accent');
+        sc.style.removeProperty('--car-accent-ink');
+      }
+
+      dots.innerHTML = pageItems
+        .map((it, i) => `<button class="sc-dot ${i === scIndex ? 'on' : ''}" data-sc="${i}" aria-label="Car ${i + 1} of ${pageItems.length}"${i === scIndex ? ' aria-current="true"' : ''}></button>`)
+        .join('');
+      $('#scPrev').disabled = scIndex === 0;
+      $('#scNext').disabled = scIndex === pageItems.length - 1;
+    }
+
+    function applyView() {
+      const showcase = scView === 'showcase';
+      $('#showcase').hidden = !showcase;
+      $('#results').hidden = showcase;
+      $$('#viewToggle .pill').forEach((b) => {
+        const on = b.dataset.view === scView;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      store.set('browseView', scView);
+    }
+
     async function loadResults() {
       const box = $('#results');
       box.style.opacity = '.45';
@@ -1104,6 +1262,9 @@
         ? res.items.map(vehicleCard).join('')
         : `<div class="empty" style="grid-column:1/-1">Nothing matches those filters. <button class="btn sm mt" data-act="clear-filters">Clear filters</button></div>`;
       box.style.opacity = '1';
+      pageItems = res.items;
+      scIndex = 0;
+      renderShowcase();
       $('#pager').innerHTML =
         res.pages > 1
           ? Array.from({ length: res.pages }, (_, i) => i + 1)
@@ -1165,6 +1326,59 @@
       window.scrollTo(0, 0);
     });
 
+    /* ---- showcase navigation ---- */
+    const scGo = (n) => {
+      scIndex = n;
+      renderShowcase();
+    };
+    $('#scPrev').onclick = () => scGo(scIndex - 1);
+    $('#scNext').onclick = () => scGo(scIndex + 1);
+    on($('#scDots'), 'click', '[data-sc]', (e, el) => scGo(Number(el.dataset.sc)));
+
+    on($('#viewToggle'), 'click', '[data-view]', (e, el) => {
+      scView = el.dataset.view;
+      applyView();
+    });
+
+    /* Arrow keys move between cars, but only when the showcase is the visible view and
+       the customer is not typing in a filter — otherwise left/right would fight the
+       caret in the search box. */
+    const scKeys = (e) => {
+      /* The router rebuilds this page on every navigation, so without this the old
+         listener would survive, hold a stale closure, and move a slider that is no
+         longer on screen. Unbinding on the first keypress after the node is gone is
+         simpler than tracking teardown across every route. */
+      if (!document.getElementById('showcase')) {
+        document.removeEventListener('keydown', scKeys);
+        return;
+      }
+      if (scView !== 'showcase') return;
+      const t = e.target;
+      if (t && /^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) return;
+      if (t && t.isContentEditable) return;
+      if (e.key === 'ArrowLeft' && scIndex > 0) scGo(scIndex - 1);
+      else if (e.key === 'ArrowRight' && scIndex < pageItems.length - 1) scGo(scIndex + 1);
+    };
+    document.addEventListener('keydown', scKeys);
+
+    /* Swipe. Bound to the stage rather than the document so it cannot hijack a scroll
+       elsewhere on the page, and it ignores mostly-vertical drags for the same reason. */
+    let tx = 0;
+    let ty = 0;
+    const stageEl = $('#showcase');
+    stageEl.addEventListener('touchstart', (e) => {
+      tx = e.touches[0].clientX;
+      ty = e.touches[0].clientY;
+    }, { passive: true });
+    stageEl.addEventListener('touchend', (e) => {
+      const dx = tx - e.changedTouches[0].clientX;
+      const dy = ty - e.changedTouches[0].clientY;
+      if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy)) return;
+      if (dx > 0 && scIndex < pageItems.length - 1) scGo(scIndex + 1);
+      else if (dx < 0 && scIndex > 0) scGo(scIndex - 1);
+    }, { passive: true });
+
+    applyView();
     await loadResults();
   }
 

@@ -142,10 +142,67 @@ function go(hash) {
 }
 
 /* ---------- theming from dealer branding ---------- */
+
+/**
+ * Black or white, whichever is readable on top of the given colour.
+ *
+ * This has to be computed rather than themed. --brand is whatever the dealership picked,
+ * so the ink that sits on it cannot be a fixed value per theme: Summit's yellow needs
+ * black on it, a navy dealership needs white, and the stylesheet has no way to know
+ * which. Getting it wrong is not cosmetic — it is white text on yellow.
+ *
+ * sRGB relative luminance, per WCAG. The 0.45 threshold is a little above the textbook
+ * 0.179 because mid-tone brand colours read better with dark ink than the formula's
+ * strict crossover suggests.
+ */
+function luminance(hex) {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return null;
+  let h = m[1];
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  const chan = (i) => {
+    const c = parseInt(h.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * chan(0) + 0.7152 * chan(2) + 0.0722 * chan(4);
+}
+
+function readableInk(hex) {
+  const L = luminance(hex);
+  if (L === null) return '#ffffff';
+  return L > 0.45 ? '#1e1b1f' : '#ffffff';
+}
+
+/** WCAG contrast ratio between two hex colours, 1 (identical) to 21 (black on white). */
+function contrastRatio(a, b) {
+  const la = luminance(a);
+  const lb = luminance(b);
+  if (la === null || lb === null) return 1;
+  const hi = Math.max(la, lb);
+  const lo = Math.min(la, lb);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 function applyBrand(dealer) {
   if (!dealer) return;
-  document.documentElement.style.setProperty('--brand', dealer.primary_color || '#c8102e');
-  document.documentElement.style.setProperty('--accent', dealer.accent_color || '#0b1f3a');
+  const brand = dealer.primary_color || '#c8102e';
+  const root = document.documentElement.style;
+  root.setProperty('--brand', brand);
+  root.setProperty('--accent', dealer.accent_color || '#0b1f3a');
+  /* Set alongside --brand, never separately. The stylesheet's per-theme --on-brand is
+     only a fallback for before this runs. */
+  root.setProperty('--on-brand', readableInk(brand));
+
+  /* A dealership picks its colour for a logo, not for a button on this stage. Summit's
+     yellow measures 1.07:1 against the light grey — a button nobody can see. Promote the
+     colour to the button surface only when it clears the stage; otherwise the button is
+     ink, which is what the reference design does anyway. The colour still carries tags,
+     underlines and the hero, where it has a dark plate behind it. */
+  const stage = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  const ink = getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
+  const usable = contrastRatio(brand, stage) >= 3;
+  root.setProperty('--btn-primary', usable ? brand : ink);
+  root.setProperty('--btn-primary-ink', readableInk(usable ? brand : ink));
 }
 
 /* ---------- misc ---------- */

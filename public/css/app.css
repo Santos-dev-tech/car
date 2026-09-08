@@ -1,35 +1,60 @@
 /* MotoKE — shared stylesheet.
-   Design system after Lamborghini.com: a cinematic dark stage broken by one confident
-   colour hit. Hard edges everywhere (0px radius), no shadows, uppercase display type on a
-   uniform 0.023em track, and an 8px spacing grid. Separation comes from surface colour
-   contrast and whitespace — never from elevation.
+   Design system after the Arcar reference: a quiet, warm light-grey stage with the car
+   as the only colourful thing on it. Hard edges everywhere (0px radius), no shadows,
+   uppercase display type on a uniform 0.023em track, and an 8px spacing grid. Separation
+   comes from surface colour contrast and whitespace — never from elevation.
+
+   Every value below was sampled off the reference frames rather than guessed:
+   #dbd9dc covers 65% of the design, #1e1b1f is the ink, #a3a1a6 the muted text.
 
    Semantic token names are unchanged, so every component rule below keeps working; only
-   the values moved. The dealership's own colour still drives --brand at runtime. */
+   the values moved. The dealership's own colour still drives --brand at runtime.
+
+   THE ONE IDEA WORTH KEEPING FROM THE REFERENCE: the primary button is not a fixed brand
+   colour. It takes the colour of the car on screen — slate blue on the Mustang, deep
+   maroon on the red Lexus. --car-accent carries that, set per vehicle in JS, and falls
+   back to the ink so nothing depends on it. */
 :root {
   /* --- brand accent: the single colour hit, used once per view --- */
-  --brand: #ffc000;              /* Giallo Vivo */
-  --brand-dim: #917300;          /* Giallo Ombra — hover / secondary state */
-  --accent: #181818;             /* Carbon Deep */
+  --brand: #1e1b1f;              /* Ink — the reference has no brand colour of its own */
+  --brand-dim: #46434a;          /* hover / secondary state */
+  --accent: #1e1b1f;
+  /* The ink that sits ON a brand-coloured surface. It has to be a token: --brand is dark
+     on the light stage and yellow on the dark one, so a literal is wrong in one of them. */
+  --on-brand: #ffffff;
+  --btn-primary: var(--brand);
+  --btn-primary-ink: var(--on-brand);
+  --topbar: #e6e4e7;
 
-  /* --- surfaces: dark stage --- */
-  --bg: #202020;                 /* Carbony Black */
-  --bg-2: #181818;               /* Carbon Deep */
-  --card: #202020;
-  --card-2: #313131;             /* Anvil */
-  --line: #494949;               /* Graphite Border */
-  --line-2: #7d7d7d;             /* Steel Mid */
+  /* Overridden per vehicle from the car's own paint. Never assume it is set: when the
+     paint is too pale to read against the stage the showcase clears both of these, so
+     the fallback has to be the brand AND the ink already computed for the brand. A
+     literal #ffffff here put white text on the yellow fallback button. */
+  --car-accent: var(--btn-primary);
+  --car-accent-ink: var(--btn-primary-ink);
+
+  /* --- surfaces: the light stage --- */
+  --bg: #dbd9dc;                 /* sampled: 65% of the reference design */
+  --bg-2: #d2d0d3;
+  --card: #e6e4e7;
+  --card-2: #d2d0d3;
+  --line: #cecccf;
+  --line-2: #a3a1a6;
 
   /* --- ink --- */
-  --text: #ffffff;               /* Pearl White */
-  --muted: #969696;              /* Ash Border */
-  --dim: #7d7d7d;                /* Steel Mid */
+  --text: #1e1b1f;               /* sampled */
+  --muted: #646166;              /* sampled */
+  --dim: #a3a1a6;                /* sampled */
 
-  /* --- status: kept for meaning, desaturated to sit inside a monochrome system --- */
-  --ok: #8fbf5a;
-  --warn: #ffc000;
-  --err: #d24b4b;
-  --info: #9aa8b8;
+  /* The giant model name behind the car. Translucent rather than a flat grey so it
+     holds up on any surface it is laid over. */
+  --ghost: rgba(30, 27, 31, .13);
+
+  /* --- status: kept for meaning, darkened to carry on a light stage --- */
+  --ok: #2f6b1f;
+  --warn: #8a6100;
+  --err: #a92626;
+  --info: #46536b;
 
   /* --- shape: hard edges are non-negotiable --- */
   --r: 0px;
@@ -76,56 +101,67 @@
   --section-gap: 80px;
 }
 
-/* ---------- light stage ----------
-   The system alternates dark stages with quiet light editorial surfaces. A viewer who
-   picks light gets the light half of the palette; the structure is identical. */
-:root[data-theme="light"] {
-  --bg: #ffffff;                 /* Pearl White */
-  --bg-2: #f5f5f5;               /* Marble Gray */
-  --card: #ffffff;
-  --card-2: #f5f5f5;
-  --line: #969696;               /* Ash Border */
-  --line-2: #494949;             /* Graphite Border */
-  --text: #202020;               /* Carbony Black */
-  --muted: #494949;
-  --dim: #7d7d7d;
-  --accent: #202020;
-  --ok: #4a7a1f;
-  --err: #a92626;
-  --info: #4a5567;
-}
-/* A viewer who has not chosen follows their system. Every rule specific to the light
-   palette lives with the tokens that define it, so the two can never drift apart. */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #ffffff;
-    --bg-2: #f5f5f5;
-    --card: #ffffff;
-    --card-2: #f5f5f5;
-    --line: #969696;
-    --line-2: #494949;
-    --text: #202020;
-    --muted: #494949;
+/* ---------- dark stage ----------
+   The light Arcar palette above is now the default, so dark is the override. It is the
+   old Lamborghini stage, kept because it is good and because the console shares it.
+
+   Written twice on purpose. The media query serves a viewer who has expressed no
+   preference and follows their system; the [data-theme="dark"] block serves one who
+   pressed the toggle. Neither can win over the other by accident, and the toggle works
+   in both directions. Every rule specific to the dark palette lives beside the tokens
+   that define it, so the two can never drift apart. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --brand: #ffc000;            /* Giallo Vivo — the dark stage keeps its colour hit */
+    --brand-dim: #917300;
+    --accent: #181818;
+    --on-brand: #202020;         /* dark ink, because --brand is yellow here */
+    --btn-primary: var(--brand);
+    --btn-primary-ink: var(--on-brand);
+    --topbar: #181818;
+    --bg: #202020;               /* Carbony Black */
+    --bg-2: #181818;
+    --card: #202020;
+    --card-2: #313131;
+    --line: #494949;
+    --line-2: #7d7d7d;
+    --text: #ffffff;
+    --muted: #969696;
     --dim: #7d7d7d;
-    --accent: #202020;
-    --ok: #4a7a1f;
-    --err: #a92626;
-    --info: #4a5567;
+    --ghost: rgba(255, 255, 255, .10);
+    --ok: #8fbf5a;
+    --warn: #ffc000;
+    --err: #d24b4b;
+    --info: #9aa8b8;
   }
-  :root:not([data-theme="dark"]) .topbar { background: rgba(255, 255, 255, .94); }
-  :root:not([data-theme="dark"]) .hero { background: #202020; }
-  :root:not([data-theme="dark"]) .hero p,
-  :root:not([data-theme="dark"]) .hero .lbl,
-  :root:not([data-theme="dark"]) .hero h1 { color: #ffffff; }
 }
-:root[data-theme="light"] .topbar { background: rgba(255, 255, 255, .94); }
-:root[data-theme="light"] .hero { background: #202020; }
-:root[data-theme="light"] .hero p,
-:root[data-theme="light"] .hero .lbl,
-:root[data-theme="light"] .hero h1 { color: #ffffff; }
-:root[data-theme="light"] select {
-  background-image: linear-gradient(45deg, transparent 50%, var(--dim) 50%), linear-gradient(135deg, var(--dim) 50%, transparent 50%);
+:root[data-theme="dark"] {
+  --brand: #ffc000;
+  --brand-dim: #917300;
+  --accent: #181818;
+  --on-brand: #202020;
+  --btn-primary: var(--brand);
+  --btn-primary-ink: var(--on-brand);
+  --topbar: #181818;
+  --bg: #202020;
+  --bg-2: #181818;
+  --card: #202020;
+  --card-2: #313131;
+  --line: #494949;
+  --line-2: #7d7d7d;
+  --text: #ffffff;
+  --muted: #969696;
+  --dim: #7d7d7d;
+  --ghost: rgba(255, 255, 255, .10);
+  --ok: #8fbf5a;
+  --warn: #ffc000;
+  --err: #d24b4b;
+  --info: #9aa8b8;
 }
+
+/* The hero stays a dark plate in both themes — a photograph needs a dark surround to read
+   as a photograph. The rules that keep its contents legible on that plate live further
+   down with the rest of the hero, so nothing is duplicated here. */
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -202,7 +238,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.2rem 0; }
 .btn:hover { background: var(--line); border-color: var(--line-2); transform: translateY(-1px); }
 .btn:active { transform: none; }
 .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
-.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--btn-primary-ink); }
 .btn.primary:hover { filter: brightness(1.1); }
 .btn.ghost { background: transparent; }
 .btn.ok { background: var(--ok); border-color: var(--ok); color: #04220f; }
@@ -800,10 +836,16 @@ p, .muted:not(.lbl), li, td, textarea, input, .faqs p, .letter p, .letter li,
 /* ---------- 3. the single colour hit ----------
    Giallo is the primary action and nothing else. Secondary actions are
    outlined or bare, so the yellow never has to compete. */
+/* --btn-primary, not --brand. The dealership picks its own colour and it is chosen for a
+   logo, not for a button on this stage: Summit's yellow measures 1.07:1 against the light
+   grey, which is a button nobody can see. applyBrand() only promotes the dealer colour to
+   the button surface when it clears the stage; otherwise the button is ink, which is also
+   what the reference design does. The colour still shows on tags, underlines and the
+   hero, where it has a dark plate behind it. */
 .btn.primary {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: #202020;
+  background: var(--btn-primary);
+  border-color: var(--btn-primary);
+  color: var(--btn-primary-ink);
   font-weight: 400;
 }
 .btn.primary:hover {
@@ -849,22 +891,22 @@ p, .muted:not(.lbl), li, td, textarea, input, .faqs p, .letter p, .letter li,
 }
 .veh .actions .btn.primary:hover,
 .search-hit .btn.primary:hover {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: #202020;
+  background: var(--btn-primary);
+  border-color: var(--btn-primary);
+  color: var(--btn-primary-ink);
 }
 
 /* Only the accent-carrying elements keep the accent; the rest go monochrome. */
 .nav a.on { background: transparent; color: var(--brand); border-bottom: 2px solid var(--brand); border-radius: 0; }
 .pill.on { background: var(--text); border-color: var(--text); color: var(--bg); }
-.tag.brand { background: var(--brand); border-color: var(--brand); color: #202020; }
+.tag.brand { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
 .subnav a.on { border-bottom-color: var(--brand); color: var(--text); }
 .bar i { background: var(--brand); }
 
 /* ---------- 4. surfaces and hairlines ---------- */
-.topbar { background: #181818; border-bottom: 0; backdrop-filter: none; }
+.topbar { background: var(--topbar); border-bottom: 0; backdrop-filter: none; }
 .topbar .wrap { min-height: 64px; }
-.logo .mark { background: var(--brand); color: #202020; border: 0; }
+.logo .mark { background: var(--brand); color: var(--on-brand); border: 0; }
 .logo .sub { font-size: var(--text-caption); letter-spacing: var(--track); }
 
 .card, .panel { border: 1px solid var(--line); background: var(--card); padding: var(--space-24); }
@@ -897,16 +939,16 @@ p, .muted:not(.lbl), li, td, textarea, input, .faqs p, .letter p, .letter li,
 /* The hero is always a dark stage, in either theme, so anything sitting on it takes
    light ink regardless of which palette is running. */
 .hero .tag { color: #ffffff; border-color: #7d7d7d; background: transparent; }
-.hero .tag.brand { color: #202020; border-color: var(--brand); background: var(--brand); }
+.hero .tag.brand { color: var(--on-brand); border-color: var(--brand); background: var(--brand); }
 .hero .btn { color: #ffffff; border-color: #7d7d7d; }
 .hero .btn:hover { background: #ffffff; color: #202020; border-color: #ffffff; }
-.hero .btn.primary { background: var(--brand); border-color: var(--brand); color: #202020; }
+.hero .btn.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
 .hero .btn.primary:hover { background: var(--brand-dim); border-color: var(--brand-dim); color: #ffffff; }
 /* Everything sitting on the hero takes light ink, in either theme. Without this, light
    mode paints dark text onto the dark stage and the pills and helper text vanish. */
 .hero .pill { color: #ffffff; border-color: #7d7d7d; background: transparent; }
 .hero .pill:hover { background: #ffffff; color: #202020; border-color: #ffffff; }
-.hero .pill.on { background: var(--brand); border-color: var(--brand); color: #202020; }
+.hero .pill.on { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
 .hero .muted, .hero .dim, .hero small, .hero label, .hero span { color: #cbcbcb; }
 .hero h1, .hero h2, .hero h3, .hero b, .hero strong { color: #ffffff; }
 .hero a:not(.btn) { color: #ffffff; }
@@ -957,14 +999,14 @@ select optgroup {
 .veh .flags .tag.ok, .gallery .main .flags .tag.ok { color: #b6e07a; border-color: rgba(182, 224, 122, .6); }
 .veh .flags .tag.err, .gallery .main .flags .tag.err { color: #ff9a9a; border-color: rgba(255, 154, 154, .6); }
 .veh .flags .tag.warn, .gallery .main .flags .tag.warn { color: var(--brand); border-color: var(--brand); }
-.veh .flags .tag.brand, .gallery .main .flags .tag.brand { color: #202020; background: var(--brand); border-color: var(--brand); }
+.veh .flags .tag.brand, .gallery .main .flags .tag.brand { color: var(--on-brand); background: var(--brand); border-color: var(--brand); }
 
 .veh .save, .gnav, .gcount {
   color: #ffffff;
   background: rgba(0, 0, 0, .55);
   border-color: rgba(255, 255, 255, .4);
 }
-.veh .save:hover, .gnav:hover { background: var(--brand); color: #202020; border-color: var(--brand); }
+.veh .save:hover, .gnav:hover { background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
 .veh .save.on { color: var(--brand); border-color: var(--brand); }
 
 /* ---------- 6. rhythm ---------- */
@@ -1024,11 +1066,11 @@ table.tbl tr:hover td { background: var(--bg-2); }
 
 /* ---------- 9. focus, kept visible and square ---------- */
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 0; }
-.skip-link { background: var(--brand); color: #202020; }
+.skip-link { background: var(--brand); color: var(--on-brand); }
 
 /* ---------- 10. floating chrome, squared off ---------- */
 #toTop, .fab { border: 1px solid var(--line-2); background: var(--bg-2); color: var(--text); }
-#toTop:hover, .fab:hover { background: var(--brand); color: #202020; border-color: var(--brand); transform: none; }
+#toTop:hover, .fab:hover { background: var(--brand); color: var(--on-brand); border-color: var(--brand); transform: none; }
 .fab { width: 56px; height: 56px; }
 #scrollbar { background: var(--brand); }
 
@@ -1112,7 +1154,7 @@ table.tbl tr:hover td { background: var(--bg-2); }
 }
 .hero-stage .slide-copy .btn { color: #ffffff; border-color: #9a9a9a; }
 .hero-stage .slide-copy .btn:hover { background: #ffffff; color: #202020; border-color: #ffffff; }
-.hero-stage .slide-copy .btn.primary { background: var(--brand); border-color: var(--brand); color: #202020; }
+.hero-stage .slide-copy .btn.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
 .hero-stage .slide-copy .btn.primary:hover { background: var(--brand-dim); border-color: var(--brand-dim); color: #ffffff; }
 
 /* controls, bottom right, exactly as the reference places them */
@@ -1178,7 +1220,7 @@ table.tbl tr:hover td { background: var(--bg-2); }
 }
 .rail-nav.prev { left: -8px; }
 .rail-nav.next { right: -8px; }
-.rail-nav:hover { background: var(--brand); border-color: var(--brand); color: #202020; }
+.rail-nav:hover { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
 .rail-nav:disabled { opacity: 0; pointer-events: none; }
 
 /* a dark band that breaks the light editorial run, per the reference's pacing */
@@ -1190,7 +1232,7 @@ table.tbl tr:hover td { background: var(--bg-2); }
 .band .muted { color: #b9b9b9; }
 .band .btn { color: #ffffff; border-color: #7d7d7d; }
 .band .btn:hover { background: #ffffff; color: #202020; border-color: #ffffff; }
-.band .btn.primary { background: var(--brand); border-color: var(--brand); color: #202020; }
+.band .btn.primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
 
 .lender-strip { display: flex; flex-wrap: wrap; gap: var(--space-16); }
 .lender-chip {
@@ -1818,4 +1860,193 @@ img { decoding: async; }
   }
   .rail-nav { display: none; }
   .section { padding-top: var(--space-48); }
+}
+
+/* ==================================================================
+   Showcase — the inventory as a stage, one car at a time.
+
+   After the Arcar reference: brand name small and tracked, the model name enormous and
+   ghosted behind the car, the car floating over it, two buttons under.
+
+   The idea worth stealing is --car-accent: the primary button takes the colour of the
+   car on screen rather than a fixed brand colour. It is set per slide in JS from the
+   vehicle's own paint, and every rule here falls back to --brand if it is missing.
+
+   This is a VIEW, not a replacement. Filters, sort, search, saving, comparing and
+   pagination all still run — the grid is one toggle away and shares the same state.
+   ================================================================== */
+
+.showcase {
+  position: relative;
+  min-height: min(76vh, 720px);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: var(--space-48) 0 var(--space-56);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+}
+
+.showcase-slide {
+  position: relative;
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  padding: 0 var(--space-56);
+}
+
+/* The brand, small and tracked, sitting above the ghost. */
+.sc-brand {
+  font-family: var(--font-display);
+  font-size: clamp(20px, 2.4vw, 34px);
+  font-weight: 400;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 4px;
+  position: relative;
+  z-index: 2;
+}
+
+/* The model name, enormous and set behind everything. aria-hidden in the markup: it is a
+   repeat of the accessible title above it, and a screen reader should not read it twice. */
+.sc-model {
+  position: absolute;
+  top: clamp(38px, 7vw, 96px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-display);
+  font-size: clamp(58px, 13vw, 190px);
+  font-weight: 800;
+  line-height: .8;
+  letter-spacing: -.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ghost);
+  user-select: none;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.sc-shot {
+  position: relative;
+  z-index: 2;
+  width: min(62%, 780px);
+  aspect-ratio: 16 / 10;
+  object-fit: contain;
+  margin: clamp(-8px, -1vw, 0px) 0 var(--space-16);
+}
+
+.sc-price {
+  position: relative;
+  z-index: 2;
+  font-family: var(--font-display);
+  font-size: var(--text-heading-sm);
+  letter-spacing: var(--track);
+}
+.sc-price .from { color: var(--muted); font-size: var(--text-label); display: block; }
+
+.sc-meta {
+  position: relative;
+  z-index: 2;
+  color: var(--muted);
+  font-size: var(--text-label);
+  letter-spacing: var(--track);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.sc-cta {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  gap: var(--space-8);
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: var(--space-24);
+}
+/* The car's own paint drives the primary button. --car-accent-ink is computed from it in
+   JS by the same luminance test that picks the ink on --brand. */
+.sc-cta .btn.primary {
+  background: var(--car-accent);
+  border-color: var(--car-accent);
+  color: var(--car-accent-ink);
+}
+.sc-cta .btn.primary:hover { filter: brightness(1.14); }
+
+/* Specs rail, right-hand side, as in the reference. */
+.sc-specs {
+  position: absolute;
+  right: var(--space-32);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  gap: var(--space-24);
+  text-align: right;
+  z-index: 3;
+}
+.sc-specs .lbl { font-size: var(--text-caption); color: var(--dim); letter-spacing: var(--track); }
+.sc-specs .v { font-family: var(--font-display); font-size: var(--text-subheading); }
+
+.sc-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 4;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.sc-arrow:hover { color: var(--text); border-color: var(--line-2); }
+.sc-arrow[disabled] { opacity: .3; cursor: default; }
+.sc-prev { left: var(--space-16); }
+.sc-next { right: var(--space-16); }
+
+.sc-dots {
+  position: absolute;
+  bottom: var(--space-24);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 4;
+}
+.sc-dot {
+  width: 8px; height: 8px;
+  border: 0;
+  padding: 0;
+  background: var(--line-2);
+  cursor: pointer;
+  transition: width .25s ease;
+}
+.sc-dot.on { width: 26px; background: var(--text); }
+
+.sc-flags { position: absolute; left: var(--space-32); top: var(--space-32); z-index: 4; display: grid; gap: 6px; justify-items: start; }
+.sc-count { position: absolute; right: var(--space-32); bottom: var(--space-24); z-index: 4; color: var(--dim); font-size: var(--text-caption); letter-spacing: var(--track); }
+
+/* Reduced motion: the crossfade is the only animation here, and it goes. */
+.showcase-slide { animation: scIn .45s cubic-bezier(.4, 0, .2, 1); }
+@keyframes scIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .showcase-slide { animation: none; }
+  .sc-dot { transition: none; }
+}
+
+@media (max-width: 900px) {
+  .showcase { min-height: 60vh; padding: var(--space-32) 0 var(--space-48); }
+  .showcase-slide { padding: 0 var(--space-24); }
+  .sc-shot { width: 88%; }
+  .sc-specs { display: none; }
+  .sc-arrow { width: 36px; height: 36px; }
+  .sc-prev { left: 4px; }
+  .sc-next { right: 4px; }
+  .sc-flags { left: var(--space-16); top: var(--space-16); }
+  .sc-count { right: var(--space-16); }
 }
