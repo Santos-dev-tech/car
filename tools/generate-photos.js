@@ -33,6 +33,17 @@ const args = process.argv.slice(2);
 const wantAll = args.includes('--all');
 const count = Number(args.find((a) => /^\d+$/.test(a))) || 12;
 
+/* --ids 29,47 shoots exactly those cars and nothing else.
+   The default ordering (featured, then views, then price) is right when you are working
+   through the whole yard, and useless when the balance only covers two images and you
+   know precisely which two you want. Spending the last credits on whatever happened to
+   sort first is not a decision anyone would make on purpose. */
+const idsArg = (() => {
+  const i = args.indexOf('--ids');
+  return i > -1 && args[i + 1] ? args[i + 1] : null;
+})();
+const wantIds = idsArg ? idsArg.split(',').map((n) => Number(n.trim())).filter(Boolean) : null;
+
 /** Body-specific framing, so a pickup is not shot like a hatchback. */
 const FRAMING = {
   Pickup: 'three-quarter front view, slightly low camera angle to show ride height and the load bed',
@@ -106,7 +117,16 @@ async function download(url, dest) {
      original, so a .png-only check thinks every already-photographed car still needs
      shooting — which quietly spends the whole balance re-doing work. */
   const hasPhoto = (id) => ['png', 'jpg'].some((e) => fs.existsSync(path.join(OUT_DIR, `${id}.${e}`)));
-  const todo = (wantAll ? rows : rows.slice(0, count)).filter((v) => !hasPhoto(v.id));
+  const pool = wantIds
+    ? wantIds.map((id) => rows.find((v) => v.id === id)).filter(Boolean)
+    : wantAll
+      ? rows
+      : rows.slice(0, count);
+  if (wantIds && pool.length !== wantIds.length) {
+    const missing = wantIds.filter((id) => !rows.some((v) => v.id === id));
+    console.log(`  Not in this dealer's live stock, skipped: ${missing.join(', ')}`);
+  }
+  const todo = pool.filter((v) => !hasPhoto(v.id));
 
   const have = credits();
   const need = todo.length * COST_EACH;

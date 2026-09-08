@@ -75,7 +75,17 @@ for src in pngs:
 
 def gallery_for(vid, stored):
     """Hero, then angles in ANGLE_ORDER, then whatever SVG views were there."""
-    hero = [s for s in stored if re.match(r"^/img/cars/%d\.(png|jpg)$" % vid, s)]
+    # The stored path is only kept if the file is still THERE. This function used to
+    # accept any stored /img/cars/<id>.(png|jpg), which meant that after this script
+    # converted 29.png to 29.jpg and deleted the original, the row kept pointing at the
+    # PNG - it matched the pattern, so the filesystem was never consulted. Nine cars
+    # shipped with a broken hero image that way, and the showcase rendered alt text where
+    # the car should have been.
+    hero = [
+        s for s in stored
+        if re.match(r"^/img/cars/%d\.(png|jpg)$" % vid, s)
+        and os.path.exists(os.path.join(CARS, os.path.basename(s)))
+    ]
     if not hero:
         for ext in ("jpg", "png"):
             if os.path.exists(os.path.join(CARS, "%d.%s" % (vid, ext))):
