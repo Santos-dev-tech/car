@@ -65,13 +65,20 @@
   --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   --track: 0.023em;              /* uniform across every size — the engineered rhythm */
 
-  /* Bahnschrift ships with Windows and is the closest industrial condensed face to
-     LamboType. The named fallbacks cover other platforms. No webfont is loaded: the
-     Content-Security-Policy allows fonts only from this origin, and the app must run
-     with no internet. Self-host a .woff2 in /public and add it here to swap it out. */
-  --font-display: 'Bahnschrift', 'DIN Alternate', 'Oswald', 'Barlow Condensed',
-                  'Franklin Gothic Medium', 'Arial Narrow', 'Segoe UI', system-ui, sans-serif;
-  --font-body: 'Bahnschrift', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* The reference sets its display type in a WIDE GEOMETRIC sans — circular O, splayed M,
+     pointed A. Bahnschrift, which this used to name first, is the opposite: condensed and
+     industrial. That single choice was most of why the showcase read as a different
+     design from the reference no matter what else moved.
+
+     Poppins is named first so that self-hosting one .woff2 makes it exact. Until then the
+     stack falls to the geometric faces that actually ship on each platform — Century
+     Gothic with Office on Windows, Avenir Next and Futura on macOS — and only then to a
+     neutral system face. No webfont is fetched: the CSP allows fonts from this origin
+     only, and the app has to run with no internet. */
+  --font-display: 'Poppins', 'Century Gothic', 'Avenir Next', 'Futura', 'URW Gothic',
+                  'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-body: 'Inter', 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system,
+               'Helvetica Neue', sans-serif;
 
   /* --- type scale --- */
   --text-caption: 10px;
@@ -112,51 +119,63 @@
    that define it, so the two can never drift apart. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --brand: #ffc000;            /* Giallo Vivo — the dark stage keeps its colour hit */
-    --brand-dim: #917300;
-    --accent: #181818;
-    --on-brand: #202020;         /* dark ink, because --brand is yellow here */
+    /* Porsche, not Lamborghini. Every value below is lifted from porsche.com's own
+       design-system custom properties, not eyeballed: #0e0e12 is their
+       --p-model-signature-color, #242428 their dark surface, #f6f6f8 their light ink,
+       and the muted tiers are their contrast ramp flattened to solid colours. The
+       status hues are theirs too. Guards Red is the one accent, used sparingly -
+       which is the whole discipline of the brand. */
+    --brand: #d5001c;            /* Guards Red */
+    --brand-dim: #a30016;
+    --accent: #0e0e12;
+    --on-brand: #ffffff;
     --btn-primary: var(--brand);
     --btn-primary-ink: var(--on-brand);
-    --topbar: #181818;
-    --bg: #202020;               /* Carbony Black */
-    --bg-2: #181818;
-    --card: #202020;
-    --card-2: #313131;
-    --line: #494949;
-    --line-2: #7d7d7d;
-    --text: #ffffff;
-    --muted: #969696;
-    --dim: #7d7d7d;
-    --ghost: rgba(255, 255, 255, .10);
-    --ok: #8fbf5a;
-    --warn: #ffc000;
-    --err: #d24b4b;
-    --info: #9aa8b8;
+    --topbar: #08080b;
+    --bg: #0e0e12;               /* --p-model-signature-color */
+    --bg-2: #08080b;
+    --card: #16161a;
+    --card-2: #242428;           /* their dark surface */
+    --line: #2e2e33;
+    --line-2: #4f5059;
+    --text: #f6f6f8;             /* their light ink */
+    --muted: #9c9c9f;
+    --dim: #75757a;
+    --ghost: rgba(246, 246, 248, .10);
+    --ok: #10c47f;
+    --warn: #f4882a;
+    --err: #fc4040;
+    --info: #178bff;
   }
 }
 :root[data-theme="dark"] {
-  --brand: #ffc000;
-  --brand-dim: #917300;
-  --accent: #181818;
-  --on-brand: #202020;
+  /* Porsche, not Lamborghini. Every value below is lifted from porsche.com's own
+     design-system custom properties, not eyeballed: #0e0e12 is their
+     --p-model-signature-color, #242428 their dark surface, #f6f6f8 their light ink,
+     and the muted tiers are their contrast ramp flattened to solid colours. The
+     status hues are theirs too. Guards Red is the one accent, used sparingly -
+     which is the whole discipline of the brand. */
+  --brand: #d5001c;            /* Guards Red */
+  --brand-dim: #a30016;
+  --accent: #0e0e12;
+  --on-brand: #ffffff;
   --btn-primary: var(--brand);
   --btn-primary-ink: var(--on-brand);
-  --topbar: #181818;
-  --bg: #202020;
-  --bg-2: #181818;
-  --card: #202020;
-  --card-2: #313131;
-  --line: #494949;
-  --line-2: #7d7d7d;
-  --text: #ffffff;
-  --muted: #969696;
-  --dim: #7d7d7d;
-  --ghost: rgba(255, 255, 255, .10);
-  --ok: #8fbf5a;
-  --warn: #ffc000;
-  --err: #d24b4b;
-  --info: #9aa8b8;
+  --topbar: #08080b;
+  --bg: #0e0e12;               /* --p-model-signature-color */
+  --bg-2: #08080b;
+  --card: #16161a;
+  --card-2: #242428;           /* their dark surface */
+  --line: #2e2e33;
+  --line-2: #4f5059;
+  --text: #f6f6f8;             /* their light ink */
+  --muted: #9c9c9f;
+  --dim: #75757a;
+  --ghost: rgba(246, 246, 248, .10);
+  --ok: #10c47f;
+  --warn: #f4882a;
+  --err: #fc4040;
+  --info: #178bff;
 }
 
 /* The hero stays a dark plate in both themes — a photograph needs a dark surround to read
@@ -1861,66 +1880,120 @@ img { decoding: async; }
   .rail-nav { display: none; }
   .section { padding-top: var(--space-48); }
 }
-
 /* ==================================================================
-   Showcase — the inventory as a stage, one car at a time.
+   SHOWCASE — the inventory as a stage.
 
-   After the Arcar reference: brand name small and tracked, the model name enormous and
-   ghosted behind the car, the car floating over it, two buttons under.
+   The reference is one car on an empty field: the brand small and tracked, the model name
+   enormous and ghosted, the car sitting in the middle of the letters, and TWO buttons.
+   Its power comes from what is not there.
 
-   The idea worth stealing is --car-accent: the primary button takes the colour of the
-   car on screen rather than a fixed brand colour. It is set per slide in JS from the
-   vehicle's own paint, and every rule here falls back to --brand if it is missing.
+   The first attempt failed because it kept the stage inside the browse layout, squeezed
+   into the column beside the filter sidebar. A stage with a sidebar next to it is not a
+   stage, it is a widget. So in this view the filters become a drawer and the stage takes
+   the full width of the page.
 
-   This is a VIEW, not a replacement. Filters, sort, search, saving, comparing and
-   pagination all still run — the grid is one toggle away and shares the same state.
+   Everything still works: the drawer holds the same filters, the same sort, the same
+   search. It is one button away rather than permanently occupying a third of the screen.
    ================================================================== */
 
-.showcase {
-  position: relative;
-  min-height: min(76vh, 720px);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  padding: var(--space-48) 0 var(--space-56);
-  background: var(--bg-2);
-  border: 1px solid var(--line);
+/* ---- the browse shell, in showcase mode ---- */
+.browse-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-16);
+}
+.browse-bar .grow { flex: 1 1 auto; }
+
+/* The sidebar becomes a drawer. Off-canvas, over the stage, never beside it. */
+.split.stage-mode { display: block; }
+.split.stage-mode > .filters {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(360px, 88vw);
+  z-index: 60;
+  overflow-y: auto;
+  transform: translateX(-102%);
+  transition: transform .28s cubic-bezier(.4, 0, .2, 1);
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+}
+.split.stage-mode.drawer-open > .filters { transform: none; }
+.drawer-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(0, 0, 0, .45);
+  border: 0;
+  padding: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .split.stage-mode > .filters { transition: none; }
 }
 
-.showcase-slide {
+/* ---- the stage ---- */
+.showcase {
+  position: relative;
+  height: clamp(520px, 72vh, 760px);
+  overflow: hidden;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  container-type: inline-size;
+}
+
+/* Three rows, not absolute positioning. The first attempt floated the car in the middle
+   of the stage and it landed on top of the price and the buttons — a photograph is much
+   taller than a cut-out, and nothing was stopping it. The rows give the car exactly the
+   space that is left over, and it can never take more. */
+.sc-slide {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  justify-items: center;
+  align-items: center;
+  text-align: center;
+  padding: clamp(24px, 4vh, 44px) clamp(56px, 7vw, 108px) clamp(44px, 6vh, 64px);
+}
+
+/* Brand and ghost are one unit: the ghost is pulled up under the brand so the two read as
+   a single lockup, exactly as in the reference. */
+.sc-head {
   position: relative;
   width: 100%;
   display: grid;
   justify-items: center;
-  text-align: center;
-  padding: 0 var(--space-56);
+  align-content: start;
+  grid-row: 1;
 }
-
-/* The brand, small and tracked, sitting above the ghost. */
 .sc-brand {
+  margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(20px, 2.4vw, 34px);
-  font-weight: 400;
-  letter-spacing: .16em;
+  font-size: clamp(15px, 1.5vw, 24px);
+  font-weight: 500;
+  letter-spacing: .38em;
+  text-indent: .38em;             /* letter-spacing pads the right; this re-centres it */
   text-transform: uppercase;
   color: var(--muted);
-  margin: 0 0 4px;
-  position: relative;
-  z-index: 2;
+  z-index: 3;
 }
-
-/* The model name, enormous and set behind everything. aria-hidden in the markup: it is a
-   repeat of the accessible title above it, and a screen reader should not read it twice. */
+/* Size is set in JS from the actual text width, so a long name never runs off the stage
+   and a short one is never timid. This is only the ceiling. */
+/* Absolute, so the enormous name can hang down behind the car instead of pushing the
+   layout around. The head row keeps its height from the brand line alone. */
 .sc-model {
   position: absolute;
-  top: clamp(38px, 7vw, 96px);
+  top: 100%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, clamp(-10px, -0.6vw, -2px));
   font-family: var(--font-display);
-  font-size: clamp(58px, 13vw, 190px);
+  font-size: var(--sc-model-size, clamp(56px, 12vw, 168px));
   font-weight: 800;
-  line-height: .8;
-  letter-spacing: -.02em;
+  line-height: .82;
+  letter-spacing: -.035em;
   text-transform: uppercase;
   white-space: nowrap;
   color: var(--ghost);
@@ -1929,134 +2002,164 @@ img { decoding: async; }
   z-index: 1;
 }
 
+/* The car sits ON the letters, overlapping their lower two thirds. */
+.sc-figure {
+  grid-row: 2;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
 .sc-shot {
-  position: relative;
-  z-index: 2;
-  width: min(62%, 780px);
-  aspect-ratio: 16 / 10;
+  display: block;
+  max-height: 100%;
+  width: auto;
+  max-width: min(60%, 760px);
   object-fit: contain;
-  margin: clamp(-8px, -1vw, 0px) 0 var(--space-16);
+}
+/* A photograph brings its own background, so it cannot float in the letters the way a
+   cut-out does. It is framed and held smaller instead, which keeps the ghosted name
+   visible either side of it rather than pretending the frame is not there. */
+.sc-shot.framed {
+  max-width: min(46%, 560px);
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border: 1px solid var(--line);
 }
 
+/* ---- the foot: price, meta, two buttons ---- */
+.sc-foot { grid-row: 3; display: grid; justify-items: center; gap: 5px; z-index: 3; }
 .sc-price {
-  position: relative;
-  z-index: 2;
   font-family: var(--font-display);
-  font-size: var(--text-heading-sm);
-  letter-spacing: var(--track);
+  font-size: clamp(20px, 2.1vw, 30px);
+  font-weight: 600;
+  letter-spacing: -.01em;
 }
-.sc-price .from { color: var(--muted); font-size: var(--text-label); display: block; }
-
+.sc-sub { color: var(--muted); font-size: var(--text-label); }
 .sc-meta {
-  position: relative;
-  z-index: 2;
-  color: var(--muted);
-  font-size: var(--text-label);
-  letter-spacing: var(--track);
+  color: var(--dim);
+  font-size: var(--text-caption);
+  letter-spacing: .14em;
   text-transform: uppercase;
-  margin-top: 4px;
 }
 
-.sc-cta {
-  position: relative;
-  z-index: 3;
-  display: flex;
-  gap: var(--space-8);
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-top: var(--space-24);
+/* Two buttons. The reference has two, and every extra one costs the composition more than
+   it earns — Reserve and WhatsApp live one click deeper, on the car's own page. */
+.sc-cta { display: flex; gap: 10px; margin-top: 14px; }
+.sc-cta .btn {
+  min-width: 148px;
+  padding: 11px 26px;
+  font-size: var(--text-label);
+  letter-spacing: .1em;
 }
-/* The car's own paint drives the primary button. --car-accent-ink is computed from it in
-   JS by the same luminance test that picks the ink on --brand. */
 .sc-cta .btn.primary {
   background: var(--car-accent);
   border-color: var(--car-accent);
   color: var(--car-accent-ink);
 }
-.sc-cta .btn.primary:hover { filter: brightness(1.14); }
+.sc-cta .btn.primary:hover { filter: brightness(1.15); }
 
-/* Specs rail, right-hand side, as in the reference. */
+/* ---- furniture ---- */
 .sc-specs {
   position: absolute;
-  right: var(--space-32);
+  right: clamp(18px, 2.4vw, 40px);
   top: 50%;
   transform: translateY(-50%);
   display: grid;
-  gap: var(--space-24);
+  gap: clamp(16px, 2.4vh, 30px);
   text-align: right;
   z-index: 3;
 }
-.sc-specs .lbl { font-size: var(--text-caption); color: var(--dim); letter-spacing: var(--track); }
-.sc-specs .v { font-family: var(--font-display); font-size: var(--text-subheading); }
+.sc-specs .lbl {
+  font-size: var(--text-caption);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 2px;
+}
+.sc-specs .v { font-family: var(--font-display); font-size: var(--text-subheading); font-weight: 600; }
+
+.sc-flags {
+  position: absolute;
+  left: clamp(18px, 2.4vw, 40px);
+  top: clamp(18px, 2.4vw, 40px);
+  z-index: 4;
+  display: flex;
+  gap: 6px;
+}
 
 .sc-arrow {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 4;
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--line);
+  z-index: 5;
+  width: 46px;
+  height: 46px;
+  border: 0;
   background: transparent;
-  color: var(--muted);
-  font-size: 20px;
+  color: var(--dim);
+  font-size: 26px;
+  line-height: 1;
   cursor: pointer;
   display: grid;
   place-items: center;
+  transition: color .18s ease;
 }
-.sc-arrow:hover { color: var(--text); border-color: var(--line-2); }
-.sc-arrow[disabled] { opacity: .3; cursor: default; }
-.sc-prev { left: var(--space-16); }
-.sc-next { right: var(--space-16); }
+.sc-arrow:hover:not([disabled]) { color: var(--text); }
+.sc-arrow[disabled] { opacity: .22; cursor: default; }
+.sc-prev { left: clamp(4px, 1vw, 18px); }
+.sc-next { right: clamp(4px, 1vw, 18px); }
 
 .sc-dots {
   position: absolute;
-  bottom: var(--space-24);
+  bottom: clamp(16px, 2.4vh, 26px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 8px;
-  z-index: 4;
+  gap: 7px;
+  z-index: 5;
 }
 .sc-dot {
-  width: 8px; height: 8px;
+  width: 7px;
+  height: 7px;
   border: 0;
   padding: 0;
+  border-radius: 999px;
   background: var(--line-2);
   cursor: pointer;
-  transition: width .25s ease;
+  transition: width .22s ease, background .22s ease;
 }
-.sc-dot.on { width: 26px; background: var(--text); }
+.sc-dot.on { width: 24px; background: var(--text); }
 
-.sc-flags { position: absolute; left: var(--space-32); top: var(--space-32); z-index: 4; display: grid; gap: 6px; justify-items: start; }
-.sc-count { position: absolute; right: var(--space-32); bottom: var(--space-24); z-index: 4; color: var(--dim); font-size: var(--text-caption); letter-spacing: var(--track); }
+.sc-count {
+  position: absolute;
+  right: clamp(18px, 2.4vw, 40px);
+  bottom: clamp(16px, 2.4vh, 26px);
+  z-index: 5;
+  color: var(--dim);
+  font-size: var(--text-caption);
+  letter-spacing: .16em;
+}
 
-/* Reduced motion: the crossfade is the only animation here, and it goes. */
-.showcase-slide { animation: scIn .45s cubic-bezier(.4, 0, .2, 1); }
-@keyframes scIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.sc-slide { animation: scIn .42s cubic-bezier(.4, 0, .2, 1); }
+@keyframes scIn { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
-  .showcase-slide { animation: none; }
-  .sc-dot { transition: none; }
+  .sc-slide { animation: none; }
+  .sc-dot, .sc-arrow { transition: none; }
 }
 
-@media (max-width: 900px) {
-  .showcase { min-height: 60vh; padding: var(--space-32) 0 var(--space-48); }
-  .showcase-slide { padding: 0 var(--space-24); }
-  .sc-shot { width: 88%; }
+/* Narrow: the specs rail and the ghost both have to give way before the car does. */
+@container (max-width: 860px) {
   .sc-specs { display: none; }
-  .sc-arrow { width: 36px; height: 36px; }
-  .sc-prev { left: 4px; }
-  .sc-next { right: 4px; }
-  .sc-flags { left: var(--space-16); top: var(--space-16); }
-  .sc-count { right: var(--space-16); }
+  .sc-figure { width: 84%; }
 }
-
-/* A cut-out floats in the ghosted model name; a real photograph cannot, so it is framed
-   instead of pretending. Two honest treatments beat one dishonest one. */
-.sc-shot.cutout { background: transparent; }
-.sc-shot.framed {
-  border: 1px solid var(--line);
-  background: var(--card);
-  object-fit: cover;
-  width: min(54%, 660px);
+@media (max-width: 720px) {
+  .showcase { height: clamp(440px, 68vh, 560px); }
+  .sc-slide { padding: 24px 44px 56px; }
+  .sc-cta { flex-direction: column; width: 100%; max-width: 300px; }
+  .sc-cta .btn { width: 100%; }
+  .sc-flags { left: 14px; top: 14px; }
+  .sc-count { display: none; }
 }

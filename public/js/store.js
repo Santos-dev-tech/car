@@ -583,44 +583,41 @@
    * and a screen reader announcing the model twice is noise, not emphasis.
    */
   function showcaseSlide(v, i, total) {
-    const paint = paintOf(v);
     const monthly = estimateMonthly(v.price);
-    const saved = S.saved.includes(v.id);
     const s = v.specs || {};
     const model = `${v.model || ''}`.trim();
-    return `<article class="showcase-slide" data-vid="${v.id}">
+    return `<article class="sc-slide" data-vid="${v.id}">
       <div class="sc-flags">
         ${v.status === 'available' ? '<span class="tag ok">Available</span>' : `<span class="tag err">${esc(titleCase(v.status))}</span>`}
         ${v.condition === 'new' ? '<span class="tag brand">Brand new</span>' : ''}
-        ${v.featured ? '<span class="tag warn">Featured</span>' : ''}
       </div>
 
-      <h2 class="sc-brand">${esc(v.make)}</h2>
-      <div class="sc-model" aria-hidden="true">${esc(model)}</div>
-      <a href="#/vehicle/${v.id}" aria-label="${esc(v.title)}">
+      <div class="sc-head">
+        <h2 class="sc-brand">${esc(v.make)}</h2>
+        <div class="sc-model" aria-hidden="true">${esc(model)}</div>
+      </div>
+
+      <a class="sc-figure" href="#/vehicle/${v.id}" aria-label="${esc(v.title)}">
         <img class="sc-shot ${isCutout(v) ? 'cutout' : 'framed'}" src="${esc(showcaseImg(v))}" alt="${esc(v.title)}">
       </a>
 
-      <div class="sc-price">${KES(v.price)}<span class="from">from ${KES(monthly)} / month with financing</span></div>
-      <div class="sc-meta">${v.year} · ${num(v.mileage_km)} km · ${esc(v.transmission || '')} · ${esc(v.fuel || '')}</div>
-
-      <div class="sc-cta">
-        <a class="btn primary" href="#/finance/${v.id}">Finance this car</a>
-        <a class="btn" href="#/vehicle/${v.id}">Details</a>
-        ${v.status === 'available' ? `<a class="btn ok" href="#/reserve/${v.id}">Reserve</a>` : ''}
-        <a class="btn wa" href="${esc(waVehicle(v))}" target="_blank" rel="noopener">WhatsApp</a>
-        <button class="btn" data-save="${v.id}" title="Save">${saved ? '♥' : '♡'}</button>
+      <div class="sc-foot">
+        <div class="sc-price">${KES(v.price)}</div>
+        <div class="sc-sub">from ${KES(monthly)} / month with financing</div>
+        <div class="sc-meta">${v.year} · ${num(v.mileage_km)} km · ${esc(v.transmission || '')} · ${esc(v.fuel || '')}</div>
+        <div class="sc-cta">
+          <a class="btn primary" href="#/finance/${v.id}">Finance</a>
+          <a class="btn" href="#/vehicle/${v.id}">Details</a>
+        </div>
       </div>
 
       <div class="sc-specs">
         ${s.hp ? `<div><div class="lbl">Power</div><div class="v">${s.hp} hp</div></div>` : ''}
         ${s.zeroTo100 ? `<div><div class="lbl">0–100</div><div class="v">${s.zeroTo100}s</div></div>` : ''}
         ${s.rimSize ? `<div><div class="lbl">Rims</div><div class="v">${s.rimSize}"</div></div>` : ''}
-        ${v.color ? `<div><div class="lbl">Paint</div><div class="v">${esc(v.color)}</div></div>` : ''}
       </div>
 
       <div class="sc-count">${i + 1} / ${total}</div>
-      <span hidden data-paint="${paint || ''}"></span>
     </article>`;
   }
 
@@ -1105,7 +1102,7 @@
     const r = facets.range || {};
     view.innerHTML = `
       <h1 class="mt">Browse stock</h1>
-      <div class="split">
+      <div class="split" id="browseSplit">
         <aside class="card filters sticky" id="filters">
           <div class="row between"><strong>Filters</strong><button class="btn sm ghost" id="clearF">Clear</button></div>
           <div class="grp">
@@ -1164,8 +1161,9 @@
           </div>
         </aside>
         <div>
-          <div class="row between wrap-r mb">
-            <div id="count" class="muted">Loading…</div>
+          <div class="browse-bar">
+            <button class="btn sm ghost" id="filterBtn" hidden>Filters</button>
+            <div id="count" class="muted grow">Loading…</div>
             <div class="row">
               <div class="pills" id="viewToggle" role="group" aria-label="How to show the stock">
                 <button class="pill" data-view="showcase" aria-pressed="false">Showcase</button>
@@ -1183,12 +1181,12 @@
               </select>
             </div>
           </div>
-          <div class="showcase" id="showcase" hidden>
-            <button class="sc-arrow sc-prev" id="scPrev" aria-label="Previous car">❮</button>
+          <section class="showcase" id="showcase" hidden aria-label="Stock showcase">
             <div id="scStage" aria-live="polite"></div>
-            <button class="sc-arrow sc-next" id="scNext" aria-label="Next car">❯</button>
+            <button class="sc-arrow sc-prev" id="scPrev" aria-label="Previous car">‹</button>
+            <button class="sc-arrow sc-next" id="scNext" aria-label="Next car">›</button>
             <div class="sc-dots" id="scDots"></div>
-          </div>
+          </section>
           <div class="veh-grid" id="results"><div class="spinner"></div></div>
           <div class="row center mt-lg" id="pager" style="justify-content:center"></div>
         </div>
@@ -1243,6 +1241,8 @@
         sc.style.removeProperty('--car-accent-ink');
       }
 
+      fitGhost();
+
       dots.innerHTML = pageItems
         .map((it, i) => `<button class="sc-dot ${i === scIndex ? 'on' : ''}" data-sc="${i}" aria-label="Car ${i + 1} of ${pageItems.length}"${i === scIndex ? ' aria-current="true"' : ''}></button>`)
         .join('');
@@ -1250,16 +1250,72 @@
       $('#scNext').disabled = scIndex === pageItems.length - 1;
     }
 
+    /**
+     * Size the ghosted model name to the stage.
+     *
+     * It is set nowrap and enormous on purpose, so a CSS clamp cannot do this: "LAND
+     * CRUISER" and "A3" want wildly different sizes, and the first attempt let the long
+     * one run off both edges of the stage. Measure the text at a known size, then scale
+     * to fill 94% of the width, capped so a two-letter model does not become a billboard.
+     */
+    function fitGhost() {
+      const el = $('#scStage') && $('#scStage').querySelector('.sc-model');
+      const stage = $('#showcase');
+      if (!el || !stage) return;
+      const avail = stage.clientWidth - 96;
+      if (avail <= 0) return;
+      el.style.fontSize = '100px';
+      const w = el.scrollWidth;
+      if (!w) return;
+      const size = Math.max(44, Math.min(190, (avail / w) * 100));
+      el.style.fontSize = size.toFixed(1) + 'px';
+    }
+
     function applyView() {
       const showcase = scView === 'showcase';
       $('#showcase').hidden = !showcase;
       $('#results').hidden = showcase;
+      $('#pager').hidden = showcase;
+
+      /* A stage with a sidebar beside it is not a stage. In showcase mode the filters
+         become a drawer and the stage takes the full width; in grid mode the sidebar is
+         exactly what it was. Same filters either way, one button apart. */
+      $('#browseSplit').classList.toggle('stage-mode', showcase);
+      if (!showcase) closeDrawer();
+      $('#filterBtn').hidden = !showcase;
+
       $$('#viewToggle .pill').forEach((b) => {
         const on = b.dataset.view === scView;
         b.classList.toggle('on', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
       store.set('browseView', scView);
+      if (showcase) fitGhost();
+    }
+
+    function closeDrawer() {
+      const split = $('#browseSplit');
+      if (split) split.classList.remove('drawer-open');
+      const veil = $('#drawerVeil');
+      if (veil) veil.remove();
+      const btn = $('#filterBtn');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function openDrawer() {
+      const split = $('#browseSplit');
+      split.classList.add('drawer-open');
+      $('#filterBtn').setAttribute('aria-expanded', 'true');
+      if (!$('#drawerVeil')) {
+        const veil = document.createElement('button');
+        veil.id = 'drawerVeil';
+        veil.className = 'drawer-veil';
+        veil.setAttribute('aria-label', 'Close filters');
+        veil.onclick = closeDrawer;
+        document.body.appendChild(veil);
+      }
+      const first = $('#fq');
+      if (first) first.focus();
     }
 
     async function loadResults() {
@@ -1358,6 +1414,23 @@
       scView = el.dataset.view;
       applyView();
     });
+
+    $('#filterBtn').onclick = () => {
+      const open = $('#browseSplit').classList.contains('drawer-open');
+      if (open) closeDrawer();
+      else openDrawer();
+    };
+
+    /* The ghost is sized from a measurement, so it has to be re-measured when the stage
+       changes width. Debounced: this fires on every pixel of a window drag. */
+    const onResize = debounce(() => {
+      if (!document.getElementById('showcase')) {
+        window.removeEventListener('resize', onResize);
+        return;
+      }
+      if (scView === 'showcase') fitGhost();
+    }, 140);
+    window.addEventListener('resize', onResize);
 
     /* Arrow keys move between cars, but only when the showcase is the visible view and
        the customer is not typing in a filter — otherwise left/right would fight the
