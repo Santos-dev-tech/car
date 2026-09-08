@@ -90,7 +90,20 @@ function vehicleSvg(q) {
     'crystal white': '#f8fafc', 'urban khaki': '#78716c', 'white pearl': '#eef2f5',
   };
   const body = named[colour.toLowerCase()] || (colour.startsWith('#') ? colour : '#475569');
-  const dark = shade(body, -28);
+
+  /* `bare=1` is the cut-out used by the showcase — no plate behind the car. That changes
+     what the outline has to do. On the dark plate a -28 shade is plenty, because the car
+     is light against near-black. As a cut-out on light grey, a white car outlined in
+     near-white is an invisible car. So a pale body gets a genuinely dark outline; a dark
+     body already reads and is left alone. */
+  const bare = q.bare === '1' || q.bare === 'true';
+  const pale = (() => {
+    const m = /^#?([a-f\d]{6})$/i.exec(body);
+    if (!m) return false;
+    const n = parseInt(m[1], 16);
+    return (((n >> 16) & 255) + ((n >> 8) & 255) + (n & 255)) / 3 > 168;
+  })();
+  const dark = shade(body, bare && pale ? -118 : -28);
   const light = shade(body, 22);
   const label = `${make} ${model}`.trim();
   const view = String(q.view || 'front').toLowerCase();
@@ -163,8 +176,19 @@ function vehicleSvg(q) {
     }).join('')}
     <circle cx="400" cy="250" r="10" fill="#e2e8f0"/>`,
   };
-  const scene = scenes[view] || scenes.front;
+  let scene = scenes[view] || scenes.front;
   const caption = { front: '', rear: 'Rear', side: 'Side', interior: 'Interior', dash: 'Dashboard', wheels: 'Wheels' }[view] || '';
+
+  /* `bare=1` returns the car with no plate behind it — a cut-out, for the showcase, where
+     the model name is set enormous behind the car and a dark rectangle would hide it.
+
+     Three things go, not one. The background plate is the obvious part. The caption goes
+     too because the showcase already prints the name above the car, larger. And the
+     ground shadow is redrawn: 35% black is right under a car on a near-black plate and
+     reads as a dirty smudge on a light grey one. */
+  if (bare) {
+    scene = scene.replace(/fill="#000" opacity="0\.\d+"/g, 'fill="#1e1b1f" opacity="0.13"');
+  }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500" role="img" aria-label="${esc(label)}${caption ? ' — ' + caption : ''}">
   <defs>
@@ -175,9 +199,9 @@ function vehicleSvg(q) {
       <stop offset="0" stop-color="${light}"/><stop offset="0.55" stop-color="${body}"/><stop offset="1" stop-color="${dark}"/>
     </linearGradient>
   </defs>
-  <rect width="800" height="500" fill="url(#bg)"/>
+  ${bare ? '' : '<rect width="800" height="500" fill="url(#bg)"/>'}
   ${scene}
-  <text x="400" y="470" text-anchor="middle" font-family="system-ui,Segoe UI,sans-serif" font-size="26" font-weight="600" fill="#e2e8f0">${esc(label)}${caption ? ` · ${caption}` : ''}</text>
+  ${bare ? '' : `<text x="400" y="470" text-anchor="middle" font-family="system-ui,Segoe UI,sans-serif" font-size="26" font-weight="600" fill="#e2e8f0">${esc(label)}${caption ? ` · ${caption}` : ''}</text>`}
 </svg>`;
 }
 function esc(s) {

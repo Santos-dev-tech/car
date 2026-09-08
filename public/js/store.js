@@ -548,6 +548,25 @@
    */
   const PAINT_MIN_CONTRAST = 2.5;
 
+  /**
+   * The showcase wants a cut-out, not a framed photograph — the model name is set
+   * enormous behind the car, and a rectangle with its own background hides it.
+   *
+   * 54 of the 77 cars are drawn by our own /img/vehicle.svg endpoint, so for those the
+   * cut-out is free and exact: ask for bare=1 and it omits the plate. The rest are real
+   * photographs with real backgrounds, and they stay as they are — a framed photo on the
+   * stage is honest, and inventing a cut-out from a JPEG is a job for a person, not a
+   * regex. Nothing here breaks if the URL is one we do not recognise.
+   */
+  function showcaseImg(v) {
+    const src = vehImg(v);
+    if (!src || src.indexOf('/img/vehicle.svg') === -1) return src;
+    return src + (src.indexOf('?') === -1 ? '?' : '&') + 'bare=1';
+  }
+
+  /** True when the showcase image has no background of its own. */
+  const isCutout = (v) => String(vehImg(v) || '').indexOf('/img/vehicle.svg') !== -1;
+
   function paintOf(v) {
     const name = String(v.color || '').trim().toLowerCase();
     const hex = CAR_PAINT[name];
@@ -579,7 +598,7 @@
       <h2 class="sc-brand">${esc(v.make)}</h2>
       <div class="sc-model" aria-hidden="true">${esc(model)}</div>
       <a href="#/vehicle/${v.id}" aria-label="${esc(v.title)}">
-        <img class="sc-shot" src="${esc(vehImg(v))}" alt="${esc(v.title)}">
+        <img class="sc-shot ${isCutout(v) ? 'cutout' : 'framed'}" src="${esc(showcaseImg(v))}" alt="${esc(v.title)}">
       </a>
 
       <div class="sc-price">${KES(v.price)}<span class="from">from ${KES(monthly)} / month with financing</span></div>

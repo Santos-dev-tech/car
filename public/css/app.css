@@ -2050,3 +2050,13 @@ img { decoding: async; }
   .sc-flags { left: var(--space-16); top: var(--space-16); }
   .sc-count { right: var(--space-16); }
 }
+
+/* A cut-out floats in the ghosted model name; a real photograph cannot, so it is framed
+   instead of pretending. Two honest treatments beat one dishonest one. */
+.sc-shot.cutout { background: transparent; }
+.sc-shot.framed {
+  border: 1px solid var(--line);
+  background: var(--card);
+  object-fit: cover;
+  width: min(54%, 660px);
+}
