@@ -94,19 +94,26 @@ says so. Always go through the server.
 ## The gates
 
 ```powershell
-node --no-warnings tools/audit.js            # 37  secrets, deps, security controls, front end
-node --no-warnings tools/finance-test.js     # 42  quoting + eligibility, no server
-node --no-warnings tools/ownership-test.js   # 39  running cost + insurance, no server
-node --no-warnings tools/performance-test.js # 71  the spec sheet, no server
-node --no-warnings tools/smoke.js 4000       # 162 the whole API, needs the server up
+node --no-warnings tools/audit.js             # 60  secrets, deps, security controls, front end
+node --no-warnings tools/finance-test.js      # 44  quoting + eligibility, no server
+node --no-warnings tools/ownership-test.js    # 44  running cost + insurance, no server
+node --no-warnings tools/performance-test.js  # 71  the spec sheet, no server
+node --no-warnings tools/firebase-test.js     # 32  ID token verification, no server
+node --no-warnings tools/valuation-test.js    # 62  price indicator + depreciation, no server
+node --no-warnings tools/inventory-test.js    # 63  stock ageing + repricing, no server
+node --no-warnings tools/smoke.js 4000        # 263 the whole API, needs the server up
 ```
 
-**351 assertions. All five pass.** Each exits with its failure count, so any of them can
+**639 assertions. All eight pass.** Each exits with its failure count, so any of them can
 gate a deploy. `audit.js` is the one that matters before anything goes public — it greps
-for committed secrets, refuses third-party imports, and asserts 23 named security controls
-plus 7 front-end invariants are still in place.
+for committed secrets, refuses third-party imports, and asserts the named security controls
+and front-end invariants are still in place.
 
-Run all five after any change to `lib/`. Run `audit.js` after any change to `public/`.
+Run all eight after any change to `lib/`. Run `audit.js` after any change to `public/`.
+
+**Restart the server between smoke runs.** The login limiter and the booking limiter are
+in-memory, and a second run against the same process trips them — the suite then fails on
+authentication, which looks like a real defect and is not one.
 
 ---
 
