@@ -581,16 +581,36 @@
             }
           </div>
           <div class="panel">
-            <div class="lbl">Restructure</div>
-            <div class="field"><label>Move to another lender</label>
-              <select id="reLender">${A.lenders.map((l) => `<option value="${l.id}" ${l.id === a.lender_id ? 'selected' : ''}>${esc(l.short_name || l.name)} — ${l.annual_rate}%</option>`).join('')}</select>
+            ${/* The old wording implied you could edit a bank's rate. You cannot — the
+                  rate and fees are the lender's own published terms. The only things
+                  that change here are WHICH lender, and the deposit and term. */ ''}
+            <div class="lbl">Try a different lender or terms</div>
+            <p class="muted" style="font-size:.84rem;margin-top:-4px">
+              Rates and fees belong to each lender and are not editable here. Pick a different
+              lender, deposit or term and the deal is re-priced against <em>their</em> published rules.
+            </p>
+
+            <div class="panel" style="margin-bottom:12px">
+              <div class="row between"><span class="dim">Currently</span>
+                <span>${esc((A.lenders.find((l) => l.id === a.lender_id) || {}).short_name || '—')}</span></div>
+              <div class="row between"><span class="dim">Instalment</span>
+                <b>${KES(a.monthly_payment)}/mo</b></div>
+              <div class="row between"><span class="dim">Deposit · term</span>
+                <span>${KES(a.deposit)} · ${a.tenor_months} months</span></div>
+            </div>
+
+            <div class="field"><label>Lender</label>
+              <select id="reLender">${A.lenders
+                .map((l) => `<option value="${l.id}" ${l.id === a.lender_id ? 'selected' : ''}>${esc(l.short_name || l.name)} — ${l.annual_rate}% ${esc(l.rate_type === 'flat' ? 'flat' : 'reducing')}, ${l.min_deposit_pct}% down min</option>`)
+                .join('')}</select>
+              <small class="dim">Their rate, their minimum deposit. Shown so you can see what you are moving to.</small>
             </div>
             <div class="grid-2">
-              <div class="field"><label>Deposit</label><input type="number" id="reDep" value="${a.deposit}"></div>
-              <div class="field"><label>Months</label><input type="number" id="reTen" value="${a.tenor_months}"></div>
+              <div class="field"><label>Deposit the customer can raise</label><input type="number" id="reDep" value="${a.deposit}"></div>
+              <div class="field"><label>Term (months)</label><input type="number" id="reTen" value="${a.tenor_months}"></div>
             </div>
-            <button class="btn block" id="reGo">Re-quote</button>
-            <small class="dim">Recalculates the instalment against the chosen lender's live rules.</small>
+            <button class="btn block primary" id="reGo">Re-price this deal</button>
+            <small class="dim">Nothing is sent to the lender. This works out what the customer would pay, so you know before you ask.</small>
           </div>
         </div>
       </div>`;
@@ -641,7 +661,7 @@
     $('#reGo', m.body).onclick = () =>
       patch(
         { lender_id: $('#reLender', m.body).value, deposit: $('#reDep', m.body).value, tenor_months: $('#reTen', m.body).value },
-        'Re-quoted'
+        'Re-priced against that lender'
       );
     $('#addNote', m.body).onclick = async () => {
       const message = $('#note', m.body).value.trim();
