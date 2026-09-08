@@ -8,6 +8,7 @@
  * supports, and must never call an expensive car cheap.
  */
 const val = require('../lib/valuation');
+const market = require('../lib/market');
 
 let pass = 0;
 let fail = 0;
@@ -102,6 +103,61 @@ ok('a Toyota holds better than a Land Rover',
 ok('a longer term is worth less', val.futureValue(4_000_000, 'Toyota', 5, 2).guaranteedFloor < fv.guaranteedFloor);
 ok('the note warns it is a projection', /projection/i.test(fv.note));
 ok('no price means no offer', val.futureValue(0, 'Toyota') === null);
+
+/* The badge on its own is too blunt. An E200 and an E200d are both a Mercedes and they do
+   not hold value the same way, so the curve has to see the variant. */
+console.log('\n— the variant, not just the badge —');
+const mb = (spec) => market.resale(6_000_000, 'Mercedes-Benz', 3, 2, spec);
+const e200 = mb({ bodyType: 'Sedan', fuel: 'petrol', engineCc: 1991 });
+const e200d = mb({ bodyType: 'Sedan', fuel: 'diesel', engineCc: 1950 });
+const gle = mb({ bodyType: 'SUV', fuel: 'diesel', engineCc: 2925 });
+const v8 = mb({ bodyType: 'Sedan', fuel: 'petrol', engineCc: 4000 });
+
+ok('an E200 and an E200d are not the same car', e200.estimatedValue !== e200d.estimatedValue, {
+  e200: e200.estimatedValue, e200d: e200d.estimatedValue,
+});
+ok('the diesel holds on better', e200d.estimatedValue > e200.estimatedValue);
+ok('the SUV holds better than the saloon', gle.retentionPerYear > e200d.retentionPerYear);
+ok('a big petrol engine is punished', v8.retentionPerYear < e200.retentionPerYear, {
+  v8: v8.retentionPerYear, e200: e200.retentionPerYear,
+});
+ok('no spec still returns a number', market.resale(6_000_000, 'Mercedes-Benz', 3, 2).estimatedValue > 0);
+ok('and says it was the badge alone', market.resale(6_000_000, 'Mercedes-Benz', 3, 2).basis.variantAware === false);
+ok('with a spec it says the variant was used', e200d.basis.variantAware === true);
+ok('the badge figure is shown so the adjustment is visible', e200d.basis.badge === 81.5, e200d.basis);
+ok('the fuel adjustment is reported as a percentage', e200d.basis.fuelEffect > 0 && e200.basis.fuelEffect === 0);
+ok('the body adjustment is negative for a saloon', e200.basis.bodyEffect < 0);
+ok('a badge nobody has a curve for still works', market.resale(1_000_000, 'Chery', 3, 0).estimatedValue > 0);
+ok('the retention never runs above 95%', market.resale(1_000_000, 'Toyota', 3, 30).retentionPerYear <= 95);
+
+/* The age easing used to ADD a flat amount, which pushed every strong holder into the
+   ceiling and made a 1.5-litre Probox and a 4.5-litre V8 Land Cruiser identical. */
+console.log('\n— age easing must not flatten the variants —');
+const probox = market.resale(1_000_000, 'Toyota', 3, 10, { bodyType: 'Van', fuel: 'petrol', engineCc: 1500 });
+const lcV8 = market.resale(9_000_000, 'Toyota', 3, 10, { bodyType: 'SUV', fuel: 'diesel', engineCc: 4500 });
+const pradoResale = market.resale(7_000_000, 'Toyota', 3, 9, { bodyType: 'SUV', fuel: 'diesel', engineCc: 2800 });
+const hilux = market.resale(3_000_000, 'Toyota', 3, 10, { bodyType: 'Pickup', fuel: 'diesel', engineCc: 2400 });
+ok('a Hilux and a Probox are still told apart at ten years old',
+  hilux.retentionPerYear !== probox.retentionPerYear, { hilux: hilux.retentionPerYear, probox: probox.retentionPerYear });
+ok('nothing in a varied old Toyota set collapses onto the ceiling',
+  [probox, lcV8, hilux].every((c) => c.retentionPerYear < 95),
+  [probox, lcV8, hilux].map((c) => c.retentionPerYear));
+ok('the 2.8 Prado holds better than the 4.5 V8', pradoResale.retentionPerYear > lcV8.retentionPerYear);
+ok('an old strong holder does not sit on the ceiling', pradoResale.retentionPerYear < 95);
+ok('age still flattens the curve', pradoResale.retentionPerYear > market.resale(7_000_000, 'Toyota', 3, 0, { bodyType: 'SUV', fuel: 'diesel', engineCc: 2800 }).retentionPerYear);
+ok('a brand new car gets no easing at all — the badge figure is used as-is',
+  market.resale(1_000_000, 'Toyota', 3, 0).retentionPerYear === 90.5,
+  market.resale(1_000_000, 'Toyota', 3, 0).retentionPerYear);
+
+console.log('\n— the future value carries the variant through —');
+const fvPetrol = val.futureValue(6_000_000, 'Mercedes-Benz', 3, 2, { bodyType: 'Sedan', fuel: 'petrol', engineCc: 1991 });
+const fvDiesel = val.futureValue(6_000_000, 'Mercedes-Benz', 3, 2, { bodyType: 'Sedan', fuel: 'diesel', engineCc: 1950 });
+ok('the two variants get different floors', fvDiesel.guaranteedFloor > fvPetrol.guaranteedFloor, {
+  petrol: fvPetrol.guaranteedFloor, diesel: fvDiesel.guaranteedFloor,
+});
+ok('the basis comes with it', fvDiesel.basis.variantAware === true);
+ok('and the note says the variant was used', /this exact/.test(fvDiesel.note));
+ok('without a spec the note stays general', !/this exact/.test(fv.note));
 
 console.log(`\n  ${pass} passed, ${fail} failed\n`);
 process.exit(fail);

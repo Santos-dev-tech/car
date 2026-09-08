@@ -660,6 +660,12 @@ const PDF_DATA_URL =
     ok('a future value is projected', one.futureValue && one.futureValue.guaranteedFloor > 0, one.futureValue);
     ok('the guaranteed floor sits under the projection', one.futureValue.guaranteedFloor < one.futureValue.projected);
     ok('and under today\'s price', one.futureValue.guaranteedFloor < stock[0].price);
+    /* The badge alone would give every Mercedes on the yard the same curve. The endpoint
+       has to hand the car's own body, fuel and engine to the projection. */
+    ok('the projection used this car, not just the badge',
+      one.futureValue.basis && one.futureValue.basis.variantAware === true, one.futureValue.basis);
+    ok('the badge figure is shown alongside the adjustment',
+      one.futureValue.basis.badge > 0 && one.futureValue.basis.badge < 100, one.futureValue.basis);
 
     ok('provenance returns all five checks', one.history && one.history.total === 5, one.history && one.history.total);
     ok('every check is clear, a problem, or explicitly unchecked',
@@ -808,7 +814,16 @@ const PDF_DATA_URL =
 
     const boss = await asRole('grace@summitmotors.demo', 'demo123');
     ok('the dealer admin sees the overview', (await api('GET', '/api/admin/stats')).status === 200);
-    ok('and stock ageing', (await api('GET', '/api/admin/ageing')).status === 200);
+    const aged = await api('GET', '/api/admin/ageing');
+    ok('and stock ageing', aged.status === 200);
+    /* Held cost is interest plus depreciation, and the depreciation half is per car. If
+       every row shares one rate the variant work has stopped reaching this screen. */
+    const oldest = (aged.json && aged.json.oldest) || [];
+    ok('every aged car reports its own depreciation rate',
+      oldest.length > 0 && oldest.every((r) => r.carrying.depreciationRatePct > 0), oldest.slice(0, 3));
+    ok('and a mixed yard does not share one rate',
+      new Set(oldest.map((r) => r.carrying.depreciationRatePct)).size > 1,
+      oldest.map((r) => [r.title, r.carrying.depreciationRatePct]));
     ok('and the staff list', (await api('GET', '/api/admin/users')).status === 200);
     ok('but still cannot rewrite a bank\'s published rates',
       (await api('POST', '/api/admin/lenders', { name: 'Fake Bank' })).status === 403, boss.user.role);

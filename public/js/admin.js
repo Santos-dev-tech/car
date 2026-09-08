@@ -817,13 +817,14 @@
 
       <h3 class="mt-lg">Longest in stock</h3>
       <div class="scroll-x"><table class="tbl">
-        <thead><tr><th>Vehicle</th><th class="num">Days</th><th class="num">Price</th><th class="num">Views</th><th class="num">Held cost</th></tr></thead>
+        <thead><tr><th>Vehicle</th><th class="num">Days</th><th class="num">Price</th><th class="num">Views</th><th class="num">Held cost</th><th class="num">Losing</th></tr></thead>
         <tbody>${a.oldest
           .map(
             (r) => `<tr><td>${esc(r.title)} ${r.status === 'reserved' ? '<span class="tag">reserved</span>' : ''}</td>
               <td class="num"><span class="tag ${r.tone}">${r.days}</span></td>
               <td class="num">${KES(r.price)}</td><td class="num">${r.views}</td>
-              <td class="num">${KES(r.carrying.total)}</td></tr>`
+              <td class="num">${KES(r.carrying.total)}</td>
+              <td class="num">${r.carrying.depreciationRatePct}%<div class="dim" style="font-size:.72rem">a year, this car</div></td></tr>`
           )
           .join('')}</tbody>
       </table></div>`;

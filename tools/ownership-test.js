@@ -89,5 +89,21 @@ ok('the change is proportional', near(line(pricey, 'fuel') / line(r, 'fuel'), 26
 ok('assumptions are returned with the answer', r.assumptions.petrol_price === 195 && r.assumptions.kmPerYear === 15000, r.assumptions);
 ok('every line explains itself', r.lines.every((l) => typeof l.detail === 'string' && l.detail.length > 0));
 
+/* The resale figure on the running-cost screen has to see the actual car, not just the
+   badge — otherwise every Mercedes on the forecourt reads the same. */
+console.log('\n· resale follows the variant, not the badge');
+const mbBase = { ...base, price: 6_000_000, make: 'Mercedes-Benz', bodyType: 'Sedan', ageYears: 8 };
+const petrol = own.runningCost({ ...mbBase, fuel: 'petrol', engineLitres: 2.0 });
+const diesel = own.runningCost({ ...mbBase, fuel: 'diesel', engineLitres: 1.95 });
+const suv = own.runningCost({ ...mbBase, fuel: 'diesel', engineLitres: 2.9, bodyType: 'SUV' });
+
+ok('an E200 and an E200d get different resale values',
+  petrol.resale.estimatedValue !== diesel.resale.estimatedValue,
+  { petrol: petrol.resale.estimatedValue, diesel: diesel.resale.estimatedValue });
+ok('the diesel holds on better', diesel.resale.estimatedValue > petrol.resale.estimatedValue);
+ok('the SUV holds better again', suv.resale.retentionPerYear > diesel.resale.retentionPerYear);
+ok('and the answer says the variant was used', petrol.resale.basis.variantAware === true);
+ok('no make means no resale claim', own.runningCost(base).resale === null);
+
 console.log(`\n\x1b[1m${pass} passed, ${fail} failed\x1b[0m\n`);
 process.exit(fail ? 1 : 0);

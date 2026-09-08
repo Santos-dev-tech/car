@@ -2818,7 +2818,12 @@
               ? `<div class="panel mt"><div class="lbl" style="margin:0">What it will be worth in 3 years</div>
                  <div class="row between"><b style="font-size:1.15rem">${KES(res.resale.estimatedValue)}</b>
                  <span class="tag ${res.resale.strongHolder ? 'ok' : 'warn'}">${res.resale.retentionPerYear}% a year</span></div>
-                 <div class="dim" style="font-size:.8rem">${esc(res.resale.make)} ${res.resale.strongHolder ? 'holds its value well in Kenya' : 'depreciates faster than a Toyota equivalent'} — that is ${KES(res.resale.lossPerMonth)} a month of value lost.</div></div>`
+                 <div class="dim" style="font-size:.8rem">${esc(res.resale.make)} ${res.resale.strongHolder ? 'holds its value well in Kenya' : 'depreciates faster than a Toyota equivalent'} — that is ${KES(res.resale.lossPerMonth)} a month of value lost.</div>
+                 ${
+                   res.resale.basis && res.resale.basis.variantAware
+                     ? `<div class="dim mt" style="font-size:.76rem">Starts from the badge (${res.resale.basis.badge}% a year) and is then adjusted for this exact variant — its body, its fuel and its engine size. Two cars wearing the same badge do not hold value the same way.</div>`
+                     : ''
+                 }</div>`
               : ''
           }
           ${res.loan ? `<div class="tag mt">Loan quoted with ${esc(res.loan.lender.name)}</div>` : ''}
