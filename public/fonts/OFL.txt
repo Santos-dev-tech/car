@@ -1,0 +1,21 @@
+Poppins
+Copyright 2020 The Poppins Project Authors
+https://github.com/itfoundry/Poppins
+
+Licensed under the SIL Open Font License, Version 1.1.
+Full licence text: https://openfontlicense.org
+
+These files are the LATIN SUBSET only, taken from the Google Fonts CDN and served
+from this origin. The full family also carries Devanagari, which is roughly four
+times the bytes and nothing on this site sets type in it.
+
+They are self-hosted on purpose. The Content-Security-Policy is `font-src 'self'
+data:`, so a request to fonts.gstatic.com would be blocked, and the app is built
+to run with no internet at all.
+
+  poppins-400.woff2   Regular    body
+  poppins-500.woff2   Medium     the tracked brand line
+  poppins-600.woff2   SemiBold   prices, spec values
+  poppins-800.woff2   ExtraBold  the ghosted model name
+
+31 KB in total for all four.

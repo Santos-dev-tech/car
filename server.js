@@ -110,16 +110,48 @@ function vehicleSvg(q) {
 
   // Each gallery slot draws a different scene so thumbnails are distinguishable.
   const scenes = {
+    /* Side profile. This is the view the showcase uses, so it is the one that has to
+       hold up at 700px wide.
+
+       Drawn to real proportions rather than as a rounded blob: the wheels sit ON the
+       ground line with the arches cut into the body over them, the greenhouse is inset
+       from the body with visible pillars, and there is a beltline and a door shut. Those
+       four things are the difference between a car and a cartoon of a car. */
     side: `
-    <ellipse cx="400" cy="405" rx="300" ry="26" fill="#000" opacity="0.35"/>
-    <path d="M120 330 C120 300 140 288 175 282 L250 214 C266 200 288 192 312 192 L500 192 C528 192 552 202 570 220 L620 268 L672 282 C700 290 712 304 712 330 L712 352 C712 362 704 368 694 368 L138 368 C127 368 120 362 120 352 Z" fill="url(#car)" stroke="${dark}" stroke-width="3"/>
-    <path d="M268 224 C280 214 296 208 314 208 L400 208 L400 278 L236 278 Z" fill="#0f172a" opacity="0.55"/>
-    <path d="M418 208 L494 208 C516 208 534 216 548 230 L588 278 L418 278 Z" fill="#0f172a" opacity="0.55"/>
-    <rect x="130" y="316" width="52" height="14" rx="7" fill="#fde68a" opacity="0.9"/>
-    <rect x="654" y="316" width="46" height="14" rx="7" fill="#fca5a5" opacity="0.9"/>
-    <g fill="#0b1120"><circle cx="248" cy="368" r="58"/><circle cx="592" cy="368" r="58"/></g>
-    <g fill="#64748b"><circle cx="248" cy="368" r="27"/><circle cx="592" cy="368" r="27"/></g>
-    <g fill="#cbd5e1"><circle cx="248" cy="368" r="11"/><circle cx="592" cy="368" r="11"/></g>`,
+    <ellipse cx="400" cy="408" rx="286" ry="17" fill="#000" opacity="0.35"/>
+
+    <!-- body: bumper, bonnet, screen, roof, rear screen, boot, back to the ground -->
+    <path d="M112 352
+             C112 328 122 312 146 304
+             L214 288
+             L286 232 C300 218 320 210 342 210
+             L486 210 C512 210 534 219 550 236
+             L610 296
+             L672 308 C696 314 706 328 706 350
+             L706 372 C706 382 698 388 688 388
+             L130 388 C119 388 112 381 112 371 Z"
+          fill="url(#car)" stroke="${dark}" stroke-width="3" stroke-linejoin="round"/>
+
+    <!-- greenhouse, inset, with a B-pillar between the two panes -->
+    <path d="M300 240 C310 230 324 224 340 224 L392 224 L392 288 L250 288 Z" fill="#0f172a" opacity="0.5"/>
+    <path d="M408 224 L482 224 C500 224 514 231 526 244 L562 288 L408 288 Z" fill="#0f172a" opacity="0.5"/>
+
+    <!-- beltline and door shut: the two lines that stop it reading as one moulded lump -->
+    <path d="M150 306 L668 306" stroke="${dark}" stroke-width="2" opacity="0.45" fill="none"/>
+    <path d="M400 288 L400 384" stroke="${dark}" stroke-width="2" opacity="0.35" fill="none"/>
+
+    <!-- lamps, sitting in the bodywork rather than floating on it -->
+    <path d="M116 330 L156 326 L156 344 L116 344 Z" fill="#fde68a" opacity="0.92"/>
+    <path d="M702 330 L664 326 L664 344 L702 344 Z" fill="#fca5a5" opacity="0.92"/>
+
+    <!-- arches cut into the body, so the wheels belong to the car -->
+    <path d="M182 388 A62 62 0 0 1 306 388 Z" fill="${dark}" opacity="0.55"/>
+    <path d="M508 388 A62 62 0 0 1 632 388 Z" fill="${dark}" opacity="0.55"/>
+
+    <g fill="#14161a"><circle cx="244" cy="388" r="56"/><circle cx="570" cy="388" r="56"/></g>
+    <g fill="#2b3038"><circle cx="244" cy="388" r="34"/><circle cx="570" cy="388" r="34"/></g>
+    <g fill="#aeb4bd"><circle cx="244" cy="388" r="21"/><circle cx="570" cy="388" r="21"/></g>
+    <g fill="#14161a"><circle cx="244" cy="388" r="7"/><circle cx="570" cy="388" r="7"/></g>`,
     front: `
     <ellipse cx="400" cy="410" rx="250" ry="24" fill="#000" opacity="0.35"/>
     <path d="M180 372 L180 268 C180 236 206 214 240 208 L280 176 C292 166 310 160 330 160 L470 160 C490 160 508 166 520 176 L560 208 C594 214 620 236 620 268 L620 372 C620 382 612 388 602 388 L198 388 C188 388 180 382 180 372 Z" fill="url(#car)" stroke="${dark}" stroke-width="3"/>
@@ -187,10 +219,20 @@ function vehicleSvg(q) {
      ground shadow is redrawn: 35% black is right under a car on a near-black plate and
      reads as a dirty smudge on a light grey one. */
   if (bare) {
-    scene = scene.replace(/fill="#000" opacity="0\.\d+"/g, 'fill="#1e1b1f" opacity="0.13"');
+    /* Drop the drawn ground shadow entirely. The showcase puts a CSS drop-shadow on the
+       cut-out, and drop-shadow traces the alpha channel — it follows the car's actual
+       silhouette, where this ellipse is a flat oval that sat under it as a second,
+       differently-shaped shadow. One shadow, and the better one. */
+    scene = scene.replace(/\s*<ellipse[^>]*fill="#000"[^>]*\/>/g, '');
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500" role="img" aria-label="${esc(label)}${caption ? ' — ' + caption : ''}">
+  /* Bare images are laid straight onto the stage, so the empty margin inside the 800x500
+     box becomes real dead space: the car renders small and low and runs into the price
+     below it. Crop to what is actually drawn. */
+  const box = bare && view === 'side' ? '96 190 610 246' : '0 0 800 500';
+  const [, , bw, bh] = box.split(' ').map(Number);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" width="${bw}" height="${bh}" role="img" aria-label="${esc(label)}${caption ? ' — ' + caption : ''}">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#0f172a"/><stop offset="1" stop-color="#1e293b"/>

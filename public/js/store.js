@@ -561,7 +561,15 @@
   function showcaseImg(v) {
     const src = vehImg(v);
     if (!src || src.indexOf('/img/vehicle.svg') === -1) return src;
-    return src + (src.indexOf('?') === -1 ? '?' : '&') + 'bare=1';
+    /* bare=1 drops the plate. view=side because the reference shows every car in
+       profile, and because the front elevation in our own generator is a blunt
+       symmetrical shape that reads as a cartoon at this size — the side profile has an
+       actual silhouette. Any view already in the URL is replaced, not appended. */
+    const base = src.split('?')[0];
+    const q = new URLSearchParams(src.split('?')[1] || '');
+    q.set('view', 'side');
+    q.set('bare', '1');
+    return base + '?' + q.toString();
   }
 
   /** True when the showcase image has no background of its own. */
@@ -1215,7 +1223,15 @@
     let scIndex = 0;
     let scView = store.get('browseView', 'showcase');
 
-    function renderShowcase() {
+    /**
+     * Build every slide once and leave them stacked.
+     *
+     * The first version replaced innerHTML on each move, which cannot crossfade: there is
+     * only ever one slide, so the outgoing car vanishes the instant the incoming one
+     * appears. The reference keeps all the slides in the DOM and toggles a class, and
+     * that is the whole reason its transition feels smooth. Same thing here.
+     */
+    function buildSlides() {
       const stage = $('#scStage');
       const dots = $('#scDots');
       if (!stage) return;
@@ -1224,9 +1240,35 @@
         dots.innerHTML = '';
         return;
       }
+      stage.innerHTML = pageItems.map((v, i) => showcaseSlide(v, i, pageItems.length)).join('');
+      /* Only the first car is worth fetching eagerly; the other eleven are one click away
+         and should not compete with it for bandwidth on a Kenyan mobile connection. */
+      $$('.sc-slide', stage).forEach((el, i) => {
+        const img = el.querySelector('.sc-shot');
+        if (img && i !== 0) img.loading = 'lazy';
+      });
+      renderShowcase();
+    }
+
+    function renderShowcase() {
+      const stage = $('#scStage');
+      const dots = $('#scDots');
+      if (!stage || !pageItems.length) return;
       scIndex = Math.max(0, Math.min(scIndex, pageItems.length - 1));
       const v = pageItems[scIndex];
-      stage.innerHTML = showcaseSlide(v, scIndex, pageItems.length);
+
+      const slides = $$('.sc-slide', stage);
+      slides.forEach((el, i) => {
+        const on = i === scIndex;
+        el.classList.toggle('on', on);
+        el.setAttribute('aria-hidden', on ? 'false' : 'true');
+        /* Off-stage slides must not be reachable by tab. They are still in the DOM and
+           their links would otherwise take focus into a car nobody can see. */
+        el.querySelectorAll('a, button').forEach((f) => {
+          if (on) f.removeAttribute('tabindex');
+          else f.setAttribute('tabindex', '-1');
+        });
+      });
 
       /* The car's own paint drives the primary button. Set on the showcase element, not
          on :root, so it can never leak into the rest of the page. Falls back to --brand
@@ -1259,7 +1301,8 @@
      * to fill 94% of the width, capped so a two-letter model does not become a billboard.
      */
     function fitGhost() {
-      const el = $('#scStage') && $('#scStage').querySelector('.sc-model');
+      const active = $('#scStage') && $('#scStage').querySelector('.sc-slide.on');
+      const el = active && active.querySelector('.sc-model');
       const stage = $('#showcase');
       if (!el || !stage) return;
       const avail = stage.clientWidth - 96;
@@ -1269,6 +1312,21 @@
       if (!w) return;
       const size = Math.max(44, Math.min(190, (avail / w) * 100));
       el.style.fontSize = size.toFixed(1) + 'px';
+    }
+
+    /* Every slide, not only the visible one. A hidden slide still has a real width, and
+       sizing it only when it appears would show one frame of the wrong size mid-fade. */
+    function fitAllGhosts() {
+      const stage = $('#scStage');
+      if (!stage) return;
+      const avail = $('#showcase').clientWidth - 96;
+      if (avail <= 0) return;
+      $$('.sc-model', stage).forEach((el) => {
+        el.style.fontSize = '100px';
+        const w = el.scrollWidth;
+        if (!w) return;
+        el.style.fontSize = Math.max(44, Math.min(190, (avail / w) * 100)).toFixed(1) + 'px';
+      });
     }
 
     function applyView() {
@@ -1290,7 +1348,7 @@
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
       store.set('browseView', scView);
-      if (showcase) fitGhost();
+      if (showcase) fitAllGhosts();
     }
 
     function closeDrawer() {
@@ -1339,7 +1397,8 @@
       box.style.opacity = '1';
       pageItems = res.items;
       scIndex = 0;
-      renderShowcase();
+      buildSlides();
+      fitAllGhosts();
       $('#pager').innerHTML =
         res.pages > 1
           ? Array.from({ length: res.pages }, (_, i) => i + 1)
@@ -1428,7 +1487,7 @@
         window.removeEventListener('resize', onResize);
         return;
       }
-      if (scView === 'showcase') fitGhost();
+      if (scView === 'showcase') fitAllGhosts();
     }, 140);
     window.addEventListener('resize', onResize);
 

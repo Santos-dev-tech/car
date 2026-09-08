@@ -1,3 +1,41 @@
+/* ---------- self-hosted type ----------
+   Poppins, SIL Open Font License, latin subset, served from this origin.
+
+   Self-hosted rather than linked: the CSP is `font-src 'self' data:`, so a request to
+   fonts.gstatic.com is blocked, and the app has to run with no internet. 31 KB for all
+   four weights.
+
+   font-display: swap, so text is readable on the first paint and reflows once the face
+   arrives, rather than sitting invisible while it loads. See public/fonts/OFL.txt. */
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/poppins-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/poppins-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/poppins-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/fonts/poppins-800.woff2') format('woff2');
+}
+
 /* MotoKE — shared stylesheet.
    Design system after the Arcar reference: a quiet, warm light-grey stage with the car
    as the only colourful thing on it. Hard edges everywhere (0px radius), no shadows,
@@ -46,9 +84,12 @@
   --muted: #646166;              /* sampled */
   --dim: #a3a1a6;                /* sampled */
 
-  /* The giant model name behind the car. Translucent rather than a flat grey so it
-     holds up on any surface it is laid over. */
-  --ghost: rgba(30, 27, 31, .13);
+  /* The giant model name behind the car. Measured off the reference, not chosen: the
+     letter strokes there read #747275 on the #dbd9dc ground, which is 55% ink. The first
+     build used 13% because the sample landed in the gap BETWEEN two letters and read the
+     background back, and the name was invisible as a result. Translucent rather than a
+     flat grey so it holds up over whatever it is laid on. */
+  --ghost: rgba(30, 27, 31, .55);
 
   /* --- status: kept for meaning, darkened to carry on a light stage --- */
   --ok: #2f6b1f;
@@ -77,7 +118,7 @@
      only, and the app has to run with no internet. */
   --font-display: 'Poppins', 'Century Gothic', 'Avenir Next', 'Futura', 'URW Gothic',
                   'Segoe UI', system-ui, -apple-system, sans-serif;
-  --font-body: 'Inter', 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system,
+  --font-body: 'Poppins', 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system,
                'Helvetica Neue', sans-serif;
 
   /* --- type scale --- */
@@ -141,7 +182,7 @@
     --text: #f6f6f8;             /* their light ink */
     --muted: #9c9c9f;
     --dim: #75757a;
-    --ghost: rgba(246, 246, 248, .10);
+    --ghost: rgba(246, 246, 248, .40);
     --ok: #10c47f;
     --warn: #f4882a;
     --err: #fc4040;
@@ -171,7 +212,7 @@
   --text: #f6f6f8;             /* their light ink */
   --muted: #9c9c9f;
   --dim: #75757a;
-  --ghost: rgba(246, 246, 248, .10);
+  --ghost: rgba(246, 246, 248, .40);
   --ok: #10c47f;
   --warn: #f4882a;
   --err: #fc4040;
@@ -810,11 +851,15 @@ table.tbl td.num, table.tbl th.num { text-align: right; font-variant-numeric: ta
    soft-shadowed, light — from console.css, and an `!important` universal rule cannot be
    politely overridden from a later sheet, only fought. So it excludes itself here
    instead. `body.console` is set only by admin.html. */
-body:not(.console) *:not(.spinner) {
+body:not(.console) *:not(.spinner):not(.sc-dot) {
   border-radius: 0 !important;
   box-shadow: none !important;
 }
 .spinner { border-radius: 50% !important; }
+/* The showcase dots are round in the reference, and a 7px square reads as a glitch
+   rather than a deliberate hard edge. Excluded above rather than fought with a later
+   !important, same as the spinner. */
+.sc-dot { border-radius: 999px !important; }
 
 /* ---------- 2. typographic voice ----------
    One weight. Hierarchy from scale and case, never from boldness. */
@@ -1948,6 +1993,10 @@ img { decoding: async; }
    of the stage and it landed on top of the price and the buttons — a photograph is much
    taller than a cut-out, and nothing was stopping it. The rows give the car exactly the
    space that is left over, and it can never take more. */
+/* Every slide is in the DOM, stacked, and only one carries .on. That is what makes the
+   move between cars a crossfade instead of a swap: the outgoing car is still there to
+   fade out. The reference does exactly this, and it is the whole reason its transition
+   reads as smooth. 0.6s on the same curve it uses. */
 .sc-slide {
   position: absolute;
   inset: 0;
@@ -1957,7 +2006,22 @@ img { decoding: async; }
   align-items: center;
   text-align: center;
   padding: clamp(24px, 4vh, 44px) clamp(56px, 7vw, 108px) clamp(44px, 6vh, 64px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .6s cubic-bezier(.4, 0, .2, 1);
 }
+.sc-slide.on { opacity: 1; pointer-events: auto; }
+
+/* The car grows into place and the brand line lifts, both settling as the fade lands.
+   Without this the crossfade is flat and reads as a slideshow rather than a stage. */
+.sc-slide .sc-shot,
+.sc-slide .sc-brand,
+.sc-slide .sc-foot {
+  transition: transform .6s cubic-bezier(.4, 0, .2, 1), opacity .6s cubic-bezier(.4, 0, .2, 1);
+}
+.sc-slide:not(.on) .sc-shot { transform: scale(.88); }
+.sc-slide:not(.on) .sc-brand { transform: translateY(16px); }
+.sc-slide:not(.on) .sc-foot { transform: translateY(12px); opacity: 0; }
 
 /* Brand and ghost are one unit: the ghost is pulled up under the brand so the two read as
    a single lockup, exactly as in the reference. */
@@ -2004,6 +2068,7 @@ img { decoding: async; }
 
 /* The car sits ON the letters, overlapping their lower two thirds. */
 .sc-figure {
+  position: relative;
   grid-row: 2;
   z-index: 2;
   display: grid;
@@ -2019,30 +2084,91 @@ img { decoding: async; }
   max-width: min(60%, 760px);
   object-fit: contain;
 }
-/* A photograph brings its own background, so it cannot float in the letters the way a
-   cut-out does. It is framed and held smaller instead, which keeps the ghosted name
-   visible either side of it rather than pretending the frame is not there. */
-.sc-shot.framed {
+
+/* A cut-out gets a real cast shadow. drop-shadow follows the alpha channel, so it traces
+   the car's own silhouette rather than boxing it — which is the difference between a car
+   standing on the stage and a picture of a car pasted onto it. Two layers: a tight dark
+   contact shadow where the tyres meet the ground, and a wide soft one for the body. */
+/* Held back to just over half the stage. The reference lets the car cover the middle of
+   the model name while both ends of the word stay readable; at 60% the car swallowed it. */
+.sc-shot.cutout {
   max-width: min(46%, 560px);
+  filter:
+    drop-shadow(0 18px 12px rgba(20, 18, 22, .28))
+    drop-shadow(0 42px 46px rgba(20, 18, 22, .20));
+}
+
+/* A photograph brings its own background and cannot float in the letters the way a
+   cut-out does. Rather than pretend otherwise, it is feathered into the stage: the mask
+   fades all four edges out, and the same two-layer shadow sits under it. No hard border —
+   that was the line that made it look pasted on. */
+.sc-shot.framed {
+  max-width: min(48%, 600px);
   aspect-ratio: 16 / 10;
   object-fit: cover;
-  border: 1px solid var(--line);
+  border: 0;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 8%, #000 88%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%),
+    linear-gradient(to bottom, transparent 0, #000 8%, #000 88%, transparent 100%);
+  mask-composite: intersect;
+  filter: drop-shadow(0 26px 34px rgba(20, 18, 22, .30));
+}
+
+/* The ground under a PHOTOGRAPH only. The drawn cars carry their own shadow inside the
+   SVG, and adding this on top of it gave them two — a soft one and a hard grey ellipse
+   sitting behind the price. */
+.sc-figure:has(.sc-shot.framed)::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2%;
+  width: min(46%, 520px);
+  height: 26px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(20, 18, 22, .30) 0%, rgba(20, 18, 22, 0) 70%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 /* ---- the foot: price, meta, two buttons ---- */
-.sc-foot { grid-row: 3; display: grid; justify-items: center; gap: 5px; z-index: 3; }
+.sc-foot { position: relative; grid-row: 3; display: grid; justify-items: center; gap: 5px; z-index: 3; }
+/* The price is the second thing anyone looks at after the car, so it is set like it.
+   It was previously about the size of the body text and sitting on a ghosted name at 55%
+   ink, which made it hard to pick out at a glance. */
 .sc-price {
   font-family: var(--font-display);
-  font-size: clamp(20px, 2.1vw, 30px);
+  font-size: clamp(26px, 2.8vw, 40px);
   font-weight: 600;
-  letter-spacing: -.01em;
+  line-height: 1.05;
+  letter-spacing: -.02em;
+  color: var(--text);
 }
-.sc-sub { color: var(--muted); font-size: var(--text-label); }
+.sc-sub { color: var(--muted); font-size: var(--text-body); font-weight: 500; }
 .sc-meta {
-  color: var(--dim);
-  font-size: var(--text-caption);
-  letter-spacing: .14em;
+  color: var(--muted);
+  font-size: var(--text-label);
+  letter-spacing: .12em;
   text-transform: uppercase;
+}
+
+/* The foot sits over the bottom of the ghosted name. At 55% ink that name is loud enough
+   to fight the price for attention, so the stage is faded out behind the text — a wash in
+   the stage's own colour, no new colour introduced. */
+.sc-foot::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -18px;
+  width: min(760px, 92%);
+  height: calc(100% + 54px);
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, var(--bg-2) 0%, var(--bg-2) 46%, transparent 78%);
+  z-index: -1;
+  pointer-events: none;
 }
 
 /* Two buttons. The reference has two, and every extra one costs the composition more than
@@ -2133,9 +2259,11 @@ img { decoding: async; }
 }
 .sc-dot.on { width: 24px; background: var(--text); }
 
+/* Bottom LEFT, not right: the floating chat button lives in the right corner on every
+   page and the counter was sitting under it. */
 .sc-count {
   position: absolute;
-  right: clamp(18px, 2.4vw, 40px);
+  left: clamp(18px, 2.4vw, 40px);
   bottom: clamp(16px, 2.4vh, 26px);
   z-index: 5;
   color: var(--dim);
@@ -2143,11 +2271,16 @@ img { decoding: async; }
   letter-spacing: .16em;
 }
 
-.sc-slide { animation: scIn .42s cubic-bezier(.4, 0, .2, 1); }
-@keyframes scIn { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
-  .sc-slide { animation: none; }
-  .sc-dot, .sc-arrow { transition: none; }
+  .sc-slide,
+  .sc-slide .sc-shot,
+  .sc-slide .sc-brand,
+  .sc-slide .sc-foot,
+  .sc-dot,
+  .sc-arrow { transition: none; }
+  .sc-slide:not(.on) .sc-shot,
+  .sc-slide:not(.on) .sc-brand,
+  .sc-slide:not(.on) .sc-foot { transform: none; }
 }
 
 /* Narrow: the specs rail and the ghost both have to give way before the car does. */
