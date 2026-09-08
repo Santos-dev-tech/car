@@ -560,7 +560,7 @@
    */
   function showcaseImg(v) {
     const src = vehImg(v);
-    if (!src || src.indexOf('/img/vehicle.svg') === -1) return src;
+    if (!src || src.indexOf('/img/vehicle.svg') === -1) return src;   // photos, cut or not
     /* bare=1 drops the plate. view=side because the reference shows every car in
        profile, and because the front elevation in our own generator is a blunt
        symmetrical shape that reads as a cartoon at this size — the side profile has an
@@ -572,8 +572,13 @@
     return base + '?' + q.toString();
   }
 
-  /** True when the showcase image has no background of its own. */
-  const isCutout = (v) => String(vehImg(v) || '').indexOf('/img/vehicle.svg') !== -1;
+  /** True when the showcase image has no background of its own.
+      Two kinds qualify: the drawn cars, and photographs that tools/cutout-photos.py has
+      lifted off their studio background and written back as `<id>-cut.png`. */
+  const isCutout = (v) => {
+    const src = String(vehImg(v) || '');
+    return src.indexOf('/img/vehicle.svg') !== -1 || /-cut\.png($|\?)/.test(src);
+  };
 
   function paintOf(v) {
     const name = String(v.color || '').trim().toLowerCase();

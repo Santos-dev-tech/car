@@ -2089,10 +2089,12 @@ img { decoding: async; }
    the car's own silhouette rather than boxing it — which is the difference between a car
    standing on the stage and a picture of a car pasted onto it. Two layers: a tight dark
    contact shadow where the tyres meet the ground, and a wide soft one for the body. */
-/* Held back to just over half the stage. The reference lets the car cover the middle of
-   the model name while both ends of the word stay readable; at 60% the car swallowed it. */
+/* The reference lets the car cover the middle of the model name while both ends of the
+   word stay readable. 56% hits that; 60% swallowed the word, and 46% left the car small
+   and floating high with a gap under it, because a cut-out photograph is a wide, short
+   image and it is the WIDTH that binds, not the height. */
 .sc-shot.cutout {
-  max-width: min(46%, 560px);
+  max-width: min(56%, 700px);
   filter:
     drop-shadow(0 18px 12px rgba(20, 18, 22, .28))
     drop-shadow(0 42px 46px rgba(20, 18, 22, .20));
