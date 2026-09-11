@@ -25,6 +25,7 @@
     ['Introducers', 'brokers', '🤝', 'applications'],
     /* A broker holds only `broker`, `inventory` and `prequal`, so these two are the only
        entries that survive the filter for them and every screen above vanishes. */
+    ['Check a client', 'check', '🧮', 'broker'],
     ['My clients', 'clients', '👥', 'broker'],
     ['My verification', 'verify', '🛡', 'broker'],
     ['SECTION', 'Finance'],
@@ -1000,6 +1001,177 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
         toast(e.message, 'err');
       }
     };
+  }
+
+  /* ---------------- check a client ----------------
+     The screen a broker opens every day, and the only one that is useful with no
+     dealership signed up at all.
+
+     The job it does is subtraction. A client says "Prado"; on his salary no lender in
+     the country will fund one, and finding that out the usual way costs the broker two
+     weeks of walking between banks and a customer who gives up. Here it costs ninety
+     seconds, and the answer comes with the reason, which is what lets him say something
+     useful instead of "they refused".
+
+     Declines are shown as prominently as approvals on purpose. A tool that only tells
+     him the good news is a tool he stops believing the first time a "yes" turns into a
+     no at the bank counter. */
+
+  async function pageBrokerCheck() {
+    view.innerHTML = `
+      <h2>Check a client</h2>
+      <p class="muted" style="margin-top:-6px">Before you walk anyone into a bank. Ninety
+        seconds here saves a fortnight of being refused.</p>
+
+      <div class="card mt">
+        <div class="grid-3">
+          <div class="field"><label for="ckName">Client name</label><input id="ckName" placeholder="James Mwangi"></div>
+          <div class="field"><label for="ckPhone">Phone</label><input id="ckPhone" placeholder="0733 445 566" inputmode="tel"></div>
+          <div class="field"><label for="ckAge">Age</label><input id="ckAge" type="number" value="34"></div>
+        </div>
+        <div class="grid-3 mt">
+          <div class="field"><label for="ckIncome">Takes home / month</label><input id="ckIncome" type="number" placeholder="95000" inputmode="numeric"></div>
+          <div class="field"><label for="ckOblig">Already pays out / month</label><input id="ckOblig" type="number" placeholder="18000" inputmode="numeric"></div>
+          <div class="field"><label for="ckEmp">Employment</label>
+            <select id="ckEmp">
+              <option value="employed">Employed</option>
+              <option value="self_employed">Self-employed</option>
+              <option value="business">Business owner</option>
+              <option value="contract">Contract</option>
+              <option value="gig">Gig / casual</option>
+            </select></div>
+        </div>
+        <div class="grid-3 mt">
+          <div class="field"><label for="ckPrice">Car they are after (KES)</label><input id="ckPrice" type="number" placeholder="3200000" inputmode="numeric"></div>
+          <div class="field"><label for="ckDep">Deposit they have</label><input id="ckDep" type="number" placeholder="640000" inputmode="numeric"></div>
+          <div class="field"><label for="ckTenor">Over how long</label>
+            <select id="ckTenor">
+              <option value="24">24 months</option>
+              <option value="36">36 months</option>
+              <option value="48" selected>48 months</option>
+              <option value="60">60 months</option>
+            </select></div>
+        </div>
+        <label class="check mt"><input type="checkbox" id="ckCrb" checked> <span>Clean CRB</span></label>
+        <button class="btn primary block lg mt" id="ckGo">Check this client</button>
+        <div id="ckMsg" class="mt"></div>
+      </div>
+
+      <div id="ckOut"></div>`;
+
+    $('#ckGo').onclick = async () => {
+      const btn = $('#ckGo');
+      const price = Number($('#ckPrice').value) || 0;
+      btn.disabled = true;
+      btn.textContent = 'Checking…';
+      $('#ckMsg').innerHTML = '';
+      try {
+        const r = await POST('/api/prequalify', {
+          dealer: A.site,   // the slug the console booted against; A.dealer does not exist
+          name: $('#ckName').value,
+          phone: $('#ckPhone').value,
+          netIncome: Number($('#ckIncome').value) || 0,
+          obligations: Number($('#ckOblig').value) || 0,
+          employment: $('#ckEmp').value,
+          crbClean: $('#ckCrb').checked,
+          age: Number($('#ckAge').value) || 0,
+          targetPrice: price,
+          deposit: Number($('#ckDep').value) || 0,
+          tenor: Number($('#ckTenor').value),
+        });
+        await renderCheck(r, price);
+      } catch (err) {
+        $('#ckMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(err.message)}</div></div>`;
+      }
+      btn.disabled = false;
+      btn.textContent = 'Check this client';
+    };
+
+    async function renderCheck(r, price) {
+      const yes = r.offers.filter((o) => o.eligible).sort((a, b) => a.monthlyPayment - b.monthlyPayment);
+      const no = r.offers.filter((o) => !o.eligible);
+      const best = yes[0];
+
+      /* What the car costs to RUN, not just to repay. A broker who only quotes the
+         instalment has a client who defaults in month four and blames him for it. */
+      let run = null;
+      if (best && price) {
+        try {
+          run = await POST('/api/running-cost', {
+            price,
+            engineLitres: 1.8,
+            fuel: 'petrol',
+            kmPerYear: 15000,
+            ageYears: 6,
+            comprehensive: true,
+            includeLoan: true,
+            loan: { monthlyPayment: best.monthlyPayment, tenorMonths: Number($('#ckTenor').value) },
+          });
+        } catch { /* the answer above still stands without it */ }
+      }
+
+      $('#ckOut').innerHTML = `
+        <div class="card mt-lg" style="border-left:4px solid var(--${yes.length ? 'ok' : 'err'})">
+          <div style="font-size:1.6rem;font-weight:700">
+            ${yes.length ? `${yes.length} of ${r.total} lenders would approve him` : `No lender will fund this`}
+          </div>
+          ${
+            best
+              ? `<div class="mt">Cheapest: <b>${esc(best.lender.name)}</b> —
+                   <b>${KES(best.monthlyPayment)}/month</b> at ${best.apr}% APR</div>`
+              : `<div class="mt muted">Try a cheaper car, a bigger deposit, or a longer term.</div>`
+          }
+          ${
+            run
+              ? `<div class="mt" style="font-size:.95rem">
+                   Real cost of owning it: <b>${KES(run.totalMonthly)}/month</b> —
+                   the loan plus fuel, insurance, servicing and tyres.
+                   <div class="dim" style="font-size:.82rem">Tell him this number, not the instalment.
+                     It is why people default in month four.</div>
+                 </div>`
+              : ''
+          }
+        </div>
+
+        ${
+          yes.length
+            ? `<h3 class="mt-lg">Who will fund it</h3>
+               <div class="scroll-x"><table class="tbl">
+                 <thead><tr><th>Lender</th><th>Type</th><th class="num">Monthly</th><th class="num">APR</th></tr></thead>
+                 <tbody>${yes
+                   .map(
+                     (o) => `<tr>
+                       <td><b>${esc(o.lender.name)}</b></td>
+                       <td class="dim">${esc(titleCase(o.lender.type || ''))}</td>
+                       <td class="num"><b>${KES(o.monthlyPayment)}</b></td>
+                       <td class="num">${o.apr}%</td>
+                     </tr>`
+                   )
+                   .join('')}</tbody></table></div>`
+            : ''
+        }
+
+        ${
+          no.length
+            ? `<h3 class="mt-lg">Who will not, and why</h3>
+               <p class="muted" style="margin-top:-6px">Read these out to the client. It is
+                 the difference between "they refused" and advice.</p>
+               <div class="scroll-x"><table class="tbl">
+                 <thead><tr><th>Lender</th><th>Reason</th></tr></thead>
+                 <tbody>${no
+                   .map(
+                     (o) => `<tr>
+                       <td>${esc(o.lender.name)}</td>
+                       <td class="dim">${esc((o.blockers || []).join(' · ') || 'Does not fit their rules')}</td>
+                     </tr>`
+                   )
+                   .join('')}</tbody></table></div>`
+            : ''
+        }
+
+        <p class="dim mt-lg" style="font-size:.8rem">Saved as <code>${esc(r.ref)}</code> against
+          this client, so you can pull it up when they call back.</p>`;
+    }
   }
 
   /* ---------------- introducers (the dealer's view) ----------------
@@ -1994,6 +2166,8 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
           return await pageAgeing();
         case 'brokers':
           return await pageIntroducers();
+        case 'check':
+          return await pageBrokerCheck();
         case 'clients':
           return await pageBrokerClients();
         case 'verify':
