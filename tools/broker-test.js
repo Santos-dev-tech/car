@@ -176,6 +176,40 @@ ok('suspension beats every other check', vSus.status === 'suspended' && vSus.ver
 ok('and the reason is recorded', /Complaint/.test(vSus.suspendedReason), vSus.suspendedReason);
 ok('reinstating restores the badge', brk.reinstate(dan) && brk.verificationFor(dealerId, dan).verified === true);
 
+/* A broker belongs to the platform, not to one yard. He finds a client and then goes
+   looking for the right car wherever it is, so a badge that only counted one
+   dealership's deals would be that dealership's private list — worth nothing to the
+   next yard he walks into, which is the opposite of what a register is for. */
+console.log('\n— the broker belongs to the platform, not to one yard —');
+const sam = mkUser('Sam Otieno', 'sam@test.ke');
+brk.saveProfile({ dealerId, brokerId: sam, idNumber: 'enc:9', kraPin: 'enc:B', address: 'Kiambu Road' });
+brk.addReference({ brokerId: sam, dealerId, dealershipName: 'Test Yard' });
+brk.addReference({ brokerId: sam, dealerId: otherDealer, dealershipName: 'Other Yard' });
+
+// Two deals at one yard, the third at a completely different one.
+mkApp(sam, 1_000_000, 'disbursed', 'One');
+mkApp(sam, 1_000_000, 'disbursed', 'Two');
+insert('applications', {
+  ref: 'X' + Math.random().toString(36).slice(2, 8).toUpperCase(),
+  dealer_id: otherDealer, introduced_by: sam, applicant: '{"fullName":"Someone"}',
+  employment: '{}', offer: '{}', price: 1_000_000, status: 'disbursed',
+  vehicle_snapshot: '{"title":"Three"}',
+});
+
+ok('deals funded at a DIFFERENT yard still count toward the badge',
+  brk.verificationFor(dealerId, sam).checks.find((c) => c.key === 'track_record').detail === '3 of 3');
+ok('so he is verified', brk.verificationFor(dealerId, sam).verified === true);
+ok('and the same badge shows at the other yard too',
+  brk.verificationFor(otherDealer, sam).verified === true);
+ok('references from two different yards both counted',
+  brk.verificationFor(dealerId, sam).checks.find((c) => c.key === 'references').from.length === 2);
+
+/* Claims are the opposite: they ARE per-yard, because a claim is about one dealership's
+   customer, and a broker who registered a client at one yard has no hold on that person
+   walking into another. */
+ok('but a CLAIM does not follow him across yards',
+  brk.claimFor(otherDealer, '0712345678') === null && brk.claimFor(dealerId, '0712345678') === peter);
+
 console.log('\n— there is no way to simply switch it on —');
 ok('no export sets verified directly',
   !Object.keys(brk).some((k) => /^(set|mark|make)Verified$/i.test(k)), Object.keys(brk));
