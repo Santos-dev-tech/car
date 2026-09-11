@@ -132,6 +132,56 @@ ok('and no other role holds the broker capability',
   ['dealer_admin', 'finance_officer', 'sales_agent', 'receptionist']
     .every((r) => auth.can({ role: r }, 'broker') === false));
 
+/* The badge is the part with real consequences. If this platform calls a man verified
+   and he defrauds a client, the platform owns it — so these tests are less about the
+   badge working and more about it being impossible to fake. */
+console.log('\n— the badge is earned, not bought —');
+const dan = mkUser('Dan Mutiso', 'dan@test.ke');
+const v0 = brk.verificationFor(dealerId, dan);
+ok('a new broker is unregistered, not verified', v0.status === 'unregistered' && v0.verified === false, v0.status);
+ok('and is told all three things that are missing', v0.missing.length === 3, v0.missing);
+ok('the basis is spelled out, not just a colour', /identity|vouching|funded/.test(v0.basis));
+
+brk.saveProfile({ dealerId, brokerId: dan, idNumber: 'enc:123', kraPin: 'enc:A00', address: 'Ngong Road' });
+const v1 = brk.verificationFor(dealerId, dan);
+ok('documents alone move him to pending, not verified', v1.status === 'pending' && v1.verified === false);
+ok('identity now passes', v1.checks.find((c) => c.key === 'identity').done === true);
+ok('but references and track record do not', v1.missing.length === 2, v1.missing);
+
+brk.addReference({ brokerId: dan, dealerId, vouchedBy: peter, dealershipName: 'Test Yard' });
+ok('one dealership vouching is not enough', brk.verificationFor(dealerId, dan).verified === false);
+ok('the same dealership cannot vouch twice',
+  brk.addReference({ brokerId: dan, dealerId, dealershipName: 'Test Yard' }).ok === false);
+brk.addReference({ brokerId: dan, dealerId: otherDealer, dealershipName: 'Other Yard' });
+ok('two independent dealerships satisfies the reference test',
+  brk.verificationFor(dealerId, dan).checks.find((c) => c.key === 'references').done === true);
+ok('but with no funded deals he is still not verified', brk.verificationFor(dealerId, dan).verified === false);
+
+mkApp(dan, 1_000_000, 'new', 'A');
+mkApp(dan, 1_000_000, 'approved', 'B');
+ok('applications that have not funded do not count',
+  brk.verificationFor(dealerId, dan).checks.find((c) => c.key === 'track_record').detail === '0 of 3');
+mkApp(dan, 1_000_000, 'disbursed', 'C');
+mkApp(dan, 1_000_000, 'completed', 'D');
+ok('two funded deals is still short', brk.verificationFor(dealerId, dan).verified === false);
+mkApp(dan, 1_000_000, 'disbursed', 'E');
+const vFinal = brk.verificationFor(dealerId, dan);
+ok('all three tests passed makes him verified', vFinal.status === 'verified' && vFinal.verified === true, vFinal.status);
+ok('and nothing is listed as missing', vFinal.missing.length === 0);
+
+console.log('\n— and it can be taken away —');
+ok('a verified broker can be suspended', brk.suspend(dan, 'Complaint from a client') === true);
+const vSus = brk.verificationFor(dealerId, dan);
+ok('suspension beats every other check', vSus.status === 'suspended' && vSus.verified === false);
+ok('and the reason is recorded', /Complaint/.test(vSus.suspendedReason), vSus.suspendedReason);
+ok('reinstating restores the badge', brk.reinstate(dan) && brk.verificationFor(dealerId, dan).verified === true);
+
+console.log('\n— there is no way to simply switch it on —');
+ok('no export sets verified directly',
+  !Object.keys(brk).some((k) => /^(set|mark|make)Verified$/i.test(k)), Object.keys(brk));
+ok('the badge survives nothing being paid — it is never asked about money',
+  !/fee|paid|payment/i.test(String(brk.verificationFor)));
+
 console.log(`\n  ${pass} passed, ${fail} failed\n`);
 
 /* Close the handle before deleting, and never let cleanup decide the exit code.
