@@ -22,6 +22,7 @@
     ['Inventory', 'inventory', '🚗', 'inventory'],
     ['Stock ageing', 'ageing', '⏳', 'ageing'],
     ['Leads', 'leads', '☎', 'leads'],
+    ['Introducers', 'brokers', '🤝', 'applications'],
     /* A broker holds only `broker`, `inventory` and `prequal`, so these two are the only
        entries that survive the filter for them and every screen above vanishes. */
     ['My clients', 'clients', '👥', 'broker'],
@@ -431,7 +432,7 @@
       .join('')}</div>`;
 
     const table = (rows) => `<div class="card scroll-x"><table class="tbl">
-      <thead><tr><th>Ref</th><th>Customer</th><th>Vehicle</th><th>Lender</th><th class="num">Price</th><th class="num">Deposit</th><th class="num">Monthly</th><th>Status</th><th>Agent</th><th>Age</th></tr></thead>
+      <thead><tr><th>Ref</th><th>Customer</th><th>Vehicle</th><th>Lender</th><th class="num">Price</th><th class="num">Deposit</th><th class="num">Monthly</th><th>Status</th><th>Agent</th><th>Introduced by</th><th>Age</th></tr></thead>
       <tbody>${rows
         .map(
           (a) => `<tr data-open="${a.id}" style="cursor:pointer">
@@ -442,10 +443,11 @@
           <td class="num">${KESK(a.price)}</td><td class="num">${KESK(a.deposit)}</td><td class="num">${KES(a.monthly_payment)}</td>
           <td><span class="tag ${STATUS_TONE[a.status] || ''}">${esc(STATUS_LABEL[a.status] || a.status)}</span></td>
           <td class="muted">${esc(a.assigned_name || '—')}</td>
+          <td class="muted">${a.introduced_name ? esc(a.introduced_name) : '<span class="dim">Walk-in</span>'}</td>
           <td class="dim">${ago(a.created_at)}</td>
         </tr>`
         )
-        .join('') || '<tr><td colspan="10" class="empty">Nothing matches.</td></tr>'}</tbody>
+        .join('') || '<tr><td colspan="11" class="empty">Nothing matches.</td></tr>'}</tbody>
     </table></div>`;
 
     paint();
@@ -559,6 +561,16 @@
                 .join('')}
             </div>
           </div>
+          ${
+            a.introduced_name
+              ? `<div class="panel">
+                   <div class="lbl">Introduced by</div>
+                   <div style="font-size:1.05rem;font-weight:600">${esc(a.introduced_name)}</div>
+                   <small class="dim">Registered this customer before the introduction.
+                     This is what their commission claim rests on — it cannot be edited.</small>
+                 </div>`
+              : ''
+          }
           <div class="panel">
             <div class="lbl">Assigned to</div>
             ${
@@ -988,6 +1000,87 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
         toast(e.message, 'err');
       }
     };
+  }
+
+  /* ---------------- introducers (the dealer's view) ----------------
+     Only brokers who have actually brought THIS dealership business. A directory of
+     other people's introducers is not a dealership's business. */
+
+  async function pageIntroducers() {
+    view.innerHTML = '<div class="spinner"></div>';
+    const d = await GET('/api/admin/brokers');
+
+    view.innerHTML = `
+      <h2>Introducers</h2>
+      <p class="muted" style="margin-top:-6px">Brokers who have brought you business.
+        ${esc(d.basis)}</p>
+
+      ${
+        d.items.length
+          ? `<div class="scroll-x"><table class="tbl">
+              <thead><tr><th>Broker</th><th>Phone</th><th class="num">Introduced</th><th class="num">Funded</th><th class="num">Value</th><th>Standing</th><th></th></tr></thead>
+              <tbody>${d.items
+                .map(
+                  (b) => `<tr>
+                    <td><b>${esc(b.name)}</b></td>
+                    <td class="dim">${esc(b.phone || '—')}</td>
+                    <td class="num">${b.introduced}</td>
+                    <td class="num">${b.funded}</td>
+                    <td class="num">${KES(b.fundedValue)}</td>
+                    <td>
+                      <span class="tag ${b.verified ? 'ok' : b.status === 'suspended' ? 'err' : 'warn'}">${esc(titleCase(b.status))}</span>
+                      ${b.missing.length ? `<div class="dim" style="font-size:.74rem">Needs: ${b.missing.map(esc).join('; ')}</div>` : ''}
+                    </td>
+                    <td>
+                      ${
+                        b.vouchedByUs
+                          ? '<span class="tag ok">You vouched</span>'
+                          : `<button class="btn sm" data-vouch="${b.id}">Vouch for them</button>`
+                      }
+                      ${
+                        allow('staff')
+                          ? b.status === 'suspended'
+                            ? `<button class="btn sm ok" data-reinstate="${b.id}">Reinstate</button>`
+                            : `<button class="btn sm err" data-suspend="${b.id}">Suspend</button>`
+                          : ''
+                      }
+                    </td>
+                  </tr>`
+                )
+                .join('')}</tbody></table></div>
+             <p class="dim mt" style="font-size:.8rem">Vouching says this person is real and
+               you have dealt with them. It is one of three tests and you can only do it once —
+               the badge needs two different dealerships, so one yard cannot make a broker
+               verified on its own.</p>`
+          : `<div class="empty">No broker has introduced business here yet.
+               They appear the moment one of their registered clients applies.</div>`
+      }`;
+
+    on(view, 'click', '[data-vouch]', (e, el) => {
+      confirmBox(`Vouch for this broker? You are telling other dealerships they are real.`, async () => {
+        try {
+          await POST(`/api/admin/broker/${el.dataset.vouch}/reference`, {});
+          toast('Vouched', 'ok');
+          render();
+        } catch (err) {
+          toast(err.message, 'err');
+        }
+      });
+    });
+
+    on(view, 'click', '[data-suspend]', (e, el) => {
+      const reason = prompt('Why are you suspending them? This is recorded.');
+      if (!reason) return;
+      POST(`/api/admin/broker/${el.dataset.suspend}/suspend`, { reason })
+        .then(() => { toast('Suspended', 'ok'); render(); })
+        .catch((err) => toast(err.message, 'err'));
+    });
+
+    on(view, 'click', '[data-reinstate]', (e, el) => {
+      POST(`/api/admin/broker/${el.dataset.reinstate}/reinstate`, {})
+        .then(() => { toast('Reinstated', 'ok'); render(); })
+        .catch((err) => toast(err.message, 'err'));
+    });
   }
 
   /* ---------------- broker ----------------
@@ -1899,6 +1992,8 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
           return await pageInventory();
         case 'ageing':
           return await pageAgeing();
+        case 'brokers':
+          return await pageIntroducers();
         case 'clients':
           return await pageBrokerClients();
         case 'verify':
