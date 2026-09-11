@@ -22,6 +22,10 @@
     ['Inventory', 'inventory', '🚗', 'inventory'],
     ['Stock ageing', 'ageing', '⏳', 'ageing'],
     ['Leads', 'leads', '☎', 'leads'],
+    /* A broker holds only `broker`, `inventory` and `prequal`, so these two are the only
+       entries that survive the filter for them and every screen above vanishes. */
+    ['My clients', 'clients', '👥', 'broker'],
+    ['My verification', 'verify', '🛡', 'broker'],
     ['SECTION', 'Finance'],
     ['Lenders & rules', 'lenders', '％', 'lenders'],
     ['Running costs', 'costs', '⛽', 'costs'],
@@ -986,6 +990,192 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
     };
   }
 
+  /* ---------------- broker ----------------
+     Two screens, and both exist to answer one question a broker has been burned by
+     before: "will I actually get paid for this one?" Everything here is either the
+     claim that protects them or the evidence that builds their standing. */
+
+  const CLAIM_TONE = (daysLeft) => (daysLeft > 30 ? 'ok' : daysLeft > 0 ? 'warn' : 'err');
+
+  async function pageBrokerClients() {
+    view.innerHTML = '<div class="spinner"></div>';
+    const b = await GET('/api/admin/broker/book');
+    const e = b.earnings || {};
+
+    view.innerHTML = `
+      <div class="row between wrap-r">
+        <div><h2>My clients</h2>
+          <p class="muted" style="margin-top:-6px">Register a client before you introduce them.
+            For ${b.claimDays} days after that, any car they buy here is credited to you.</p></div>
+      </div>
+
+      <div class="kpis mt">
+        <div class="kpi"><div class="k">Funded</div><div class="v">${e.fundedCount || 0}</div>
+          <div class="d">${KES(e.fundedValue || 0)} of cars</div></div>
+        <div class="kpi"><div class="k">Still going</div><div class="v">${e.liveCount || 0}</div>
+          <div class="d">${KES(e.liveValue || 0)} in play</div></div>
+        <div class="kpi"><div class="k">Earned</div><div class="v">${e.ratePerDeal ? KES(e.earned || 0) : '—'}</div>
+          <div class="d">${esc(e.note || '')}</div></div>
+      </div>
+
+      <div class="card mt">
+        <div class="lbl">Register a client</div>
+        <p class="muted" style="font-size:.86rem">Their phone number is what protects the
+          introduction — not the car. If you show them a Prado and they buy a Harrier, you
+          are still credited.</p>
+        <div class="grid-3 mt">
+          <div class="field"><label for="bcName">Name</label><input id="bcName" placeholder="John Omondi"></div>
+          <div class="field"><label for="bcPhone">Phone</label><input id="bcPhone" placeholder="0712 345 678" inputmode="tel"></div>
+          <div class="field"><label for="bcNote">What they are after (optional)</label><input id="bcNote" placeholder="Prado or similar, up to 7M"></div>
+        </div>
+        <button class="btn primary mt" id="bcSave">Register and protect</button>
+        <div id="bcMsg" class="mt"></div>
+      </div>
+
+      <h3 class="mt-lg">Registered (${b.clients.length})</h3>
+      ${
+        b.clients.length
+          ? `<div class="scroll-x"><table class="tbl">
+              <thead><tr><th>Client</th><th>Phone</th><th>Looking for</th><th class="num">Protected until</th><th>Confirmed</th></tr></thead>
+              <tbody>${b.clients
+                .map((c) => {
+                  const left = Math.ceil((new Date(c.claim_expires) - Date.now()) / 864e5);
+                  return `<tr>
+                    <td><b>${esc(c.name)}</b></td>
+                    <td>${esc(c.phone)}</td>
+                    <td class="dim">${esc(c.note || '—')}</td>
+                    <td class="num"><span class="tag ${CLAIM_TONE(left)}">${left > 0 ? left + ' days left' : 'expired'}</span></td>
+                    <td>${c.confirmed_by_client ? '<span class="tag ok">By the client</span>' : '<span class="dim">Not yet</span>'}</td>
+                  </tr>`;
+                })
+                .join('')}</tbody></table></div>`
+          : '<div class="empty">No clients registered yet. Register one above before you introduce them — that is the whole point.</div>'
+      }
+
+      <h3 class="mt-lg">Their applications (${b.applications.length})</h3>
+      ${
+        b.applications.length
+          ? `<div class="scroll-x"><table class="tbl">
+              <thead><tr><th>Ref</th><th>Client</th><th>Car</th><th class="num">Price</th><th>Stage</th></tr></thead>
+              <tbody>${b.applications
+                .map(
+                  (a) => `<tr>
+                    <td><code>${esc(a.ref)}</code></td>
+                    <td>${esc(a.client || '—')}</td>
+                    <td>${esc(a.vehicle || '—')}</td>
+                    <td class="num">${KES(a.price || 0)}</td>
+                    <td><span class="tag ${STATUS_TONE[a.status] || ''}">${esc(titleCase(a.status))}</span></td>
+                  </tr>`
+                )
+                .join('')}</tbody></table></div>
+             <p class="dim mt" style="font-size:.8rem">Names only. Your clients' ID numbers,
+               payslips and bank statements are not shown to introducers.</p>`
+          : '<div class="empty">Nothing yet. An application appears here the moment one of your registered clients applies.</div>'
+      }`;
+
+    $('#bcSave').onclick = async () => {
+      const btn = $('#bcSave');
+      btn.disabled = true;
+      try {
+        const r = await POST('/api/admin/broker/clients', {
+          name: $('#bcName').value,
+          phone: $('#bcPhone').value,
+          note: $('#bcNote').value,
+        });
+        toast(r.already ? 'Already yours — nothing changed' : `Protected for ${r.holdsForDays} days`, 'ok');
+        render();
+      } catch (err) {
+        $('#bcMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(err.message)}</div></div>`;
+        btn.disabled = false;
+      }
+    };
+  }
+
+  async function pageBrokerVerify() {
+    view.innerHTML = '<div class="spinner"></div>';
+    const v = await GET('/api/admin/broker/verification');
+    const done = v.checks.filter((c) => c.done).length;
+
+    view.innerHTML = `
+      <h2>My verification</h2>
+      <p class="muted" style="margin-top:-6px">${esc(v.basis)}</p>
+
+      <div class="card mt">
+        <div class="row between">
+          <div>
+            <div class="lbl" style="margin:0">Status</div>
+            <div style="font-size:1.5rem;font-weight:600">${
+              v.verified ? 'Verified' : titleCase(v.status)
+            }</div>
+          </div>
+          <span class="tag ${v.verified ? 'ok' : v.status === 'suspended' ? 'err' : 'warn'}">${done} of ${v.checks.length} done</span>
+        </div>
+        ${
+          v.suspendedReason
+            ? `<div class="form-note err mt"><span>✕</span><div>${esc(v.suspendedReason)}</div></div>`
+            : ''
+        }
+      </div>
+
+      <div class="mt">
+        ${v.checks
+          .map(
+            (c) => `<div class="card tight mt">
+              <div class="row between">
+                <div>
+                  <b>${c.done ? '✓' : '○'} ${esc(c.label)}</b>
+                  <div class="dim" style="font-size:.84rem">${esc(c.detail)}${
+                    c.from && c.from.length ? ' — ' + c.from.map(esc).join(', ') : ''
+                  }</div>
+                </div>
+                <span class="tag ${c.done ? 'ok' : ''}">${c.done ? 'Done' : 'Outstanding'}</span>
+              </div>
+            </div>`
+          )
+          .join('')}
+      </div>
+
+      ${
+        v.checks.find((c) => c.key === 'identity').done
+          ? ''
+          : `<div class="card mt">
+              <div class="lbl">Send your details</div>
+              <p class="muted" style="font-size:.86rem">Stored encrypted. A dealership sees
+                that you are verified — never your ID number.</p>
+              <div class="grid-3 mt">
+                <div class="field"><label for="bvId">ID number</label><input id="bvId" inputmode="numeric"></div>
+                <div class="field"><label for="bvKra">KRA PIN</label><input id="bvKra" placeholder="A000000000X"></div>
+                <div class="field"><label for="bvAddr">Physical address</label><input id="bvAddr" placeholder="Ngong Road, Nairobi"></div>
+              </div>
+              <button class="btn primary mt" id="bvSave">Submit</button>
+              <div id="bvMsg" class="mt"></div>
+            </div>`
+      }
+
+      <p class="dim mt-lg" style="font-size:.8rem">Nobody can buy this badge, including you.
+        It is worked out from what you have actually done, every time it is checked — which
+        is the only reason a dealership has any reason to trust it.</p>`;
+
+    const save = $('#bvSave');
+    if (save) {
+      save.onclick = async () => {
+        save.disabled = true;
+        try {
+          await POST('/api/admin/broker/verification', {
+            idNumber: $('#bvId').value,
+            kraPin: $('#bvKra').value,
+            address: $('#bvAddr').value,
+          });
+          toast('Details received', 'ok');
+          render();
+        } catch (err) {
+          $('#bvMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(err.message)}</div></div>`;
+          save.disabled = false;
+        }
+      };
+    }
+  }
+
   /* ---------------- lenders ---------------- */
 
   async function pageLenders() {
@@ -1709,6 +1899,10 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
           return await pageInventory();
         case 'ageing':
           return await pageAgeing();
+        case 'clients':
+          return await pageBrokerClients();
+        case 'verify':
+          return await pageBrokerVerify();
         case 'lenders':
           return await pageLenders();
         case 'leads':
