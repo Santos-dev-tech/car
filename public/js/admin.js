@@ -1200,7 +1200,7 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
                     <td class="num">${b.funded}</td>
                     <td class="num">${KES(b.fundedValue)}</td>
                     <td>
-                      <span class="tag ${b.verified ? 'ok' : b.status === 'suspended' ? 'err' : 'warn'}">${esc(titleCase(b.status))}</span>
+                      <span class="tag ${b.verified ? 'ok' : b.status === 'suspended' ? 'err' : b.idChecked ? '' : 'warn'}">${esc(b.label)}</span>
                       ${b.missing.length ? `<div class="dim" style="font-size:.74rem">Needs: ${b.missing.map(esc).join('; ')}</div>` : ''}
                     </td>
                     <td>
@@ -1369,11 +1369,10 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
         <div class="row between">
           <div>
             <div class="lbl" style="margin:0">Status</div>
-            <div style="font-size:1.5rem;font-weight:600">${
-              v.verified ? 'Verified' : titleCase(v.status)
-            }</div>
+            <div style="font-size:1.5rem;font-weight:600">${esc(v.label)}</div>
+            <div class="dim" style="font-size:.84rem;max-width:46ch">${esc(v.means)}</div>
           </div>
-          <span class="tag ${v.verified ? 'ok' : v.status === 'suspended' ? 'err' : 'warn'}">${done} of ${v.checks.length} done</span>
+          <span class="tag ${v.verified ? 'ok' : v.status === 'suspended' ? 'err' : v.idChecked ? '' : 'warn'}">${done} of ${v.checks.length} done</span>
         </div>
         ${
           v.suspendedReason

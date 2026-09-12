@@ -140,11 +140,11 @@ const dan = mkUser('Dan Mutiso', 'dan@test.ke');
 const v0 = brk.verificationFor(dealerId, dan);
 ok('a new broker is unregistered, not verified', v0.status === 'unregistered' && v0.verified === false, v0.status);
 ok('and is told all three things that are missing', v0.missing.length === 3, v0.missing);
-ok('the basis is spelled out, not just a colour', /identity|vouching|funded/.test(v0.basis));
+ok('the basis is spelled out, not just a colour', /ID checked|vouching|funded/.test(v0.basis));
 
 brk.saveProfile({ dealerId, brokerId: dan, idNumber: 'enc:123', kraPin: 'enc:A00', address: 'Ngong Road' });
 const v1 = brk.verificationFor(dealerId, dan);
-ok('documents alone move him to pending, not verified', v1.status === 'pending' && v1.verified === false);
+ok('documents alone move him to ID checked, not verified', v1.status === 'id_checked' && v1.verified === false);
 ok('identity now passes', v1.checks.find((c) => c.key === 'identity').done === true);
 ok('but references and track record do not', v1.missing.length === 2, v1.missing);
 
@@ -168,6 +168,27 @@ mkApp(dan, 1_000_000, 'disbursed', 'E');
 const vFinal = brk.verificationFor(dealerId, dan);
 ok('all three tests passed makes him verified', vFinal.status === 'verified' && vFinal.verified === true, vFinal.status);
 ok('and nothing is listed as missing', vFinal.missing.length === 0);
+
+/* The reason levels exist at all, and this is a correction rather than a refinement:
+   three funded deals cannot happen before any dealership is on the platform, so a single
+   badge left every broker stuck at the starting line forever. ID checked has to stand on
+   its own and reach nothing outside the platform to be earned. */
+console.log('\n— ID checked stands on its own —');
+const eve = mkUser('Eve Wangari', 'eve@test.ke');
+ok('before anything she is unregistered', brk.verificationFor(dealerId, eve).status === 'unregistered');
+brk.saveProfile({ dealerId, brokerId: eve, idNumber: 'enc:77', kraPin: 'enc:C', address: 'Kilimani' });
+const ve = brk.verificationFor(dealerId, eve);
+ok('documents alone reach ID checked', ve.status === 'id_checked', ve.status);
+ok('and idChecked reads true', ve.idChecked === true);
+ok('but verified is still false', ve.verified === false);
+ok('with no dealership involved at all',
+  ve.checks.find((c) => c.key === 'references').done === false);
+ok('the level has a plain-words label', ve.label === 'ID checked', ve.label);
+ok('and says what it actually means', /seen their national ID/.test(ve.means), ve.means);
+brk.suspend(eve, 'test suspension');
+ok('a suspended broker is not ID checked either', brk.verificationFor(dealerId, eve).idChecked === false);
+brk.reinstate(eve);
+ok('and comes back after reinstating', brk.verificationFor(dealerId, eve).idChecked === true);
 
 console.log('\n— and it can be taken away —');
 ok('a verified broker can be suspended', brk.suspend(dan, 'Complaint from a client') === true);
