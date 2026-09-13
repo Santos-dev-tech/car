@@ -2718,7 +2718,12 @@
       btn.disabled = false;
     };
     $('#bkGo').onclick = run;
-    $('#bkPhone').onkeydown = (e) => e.key === 'Enter' && run();
+    /* Block body, NOT `(e) => e.key === 'Enter' && fn()`.
+       That expression returns FALSE for every key that is not Enter, and returning false
+       from a DOM0 handler cancels the event — so the shortcut silently swallowed every
+       keystroke, including Backspace. Typing into the field did nothing at all and it read
+       as a broken input rather than a broken handler. */
+    $('#bkPhone').onkeydown = (e) => { if (e.key === 'Enter') run(); };
   }
 
   /**

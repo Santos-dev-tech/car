@@ -114,8 +114,13 @@
       }
     };
     $('#go').onclick = submit;
-    $('#p').onkeydown = (e) => e.key === 'Enter' && submit();
-    $('#e').onkeydown = (e) => e.key === 'Enter' && submit();
+    /* Block body, NOT `(e) => e.key === 'Enter' && fn()`.
+       That expression returns FALSE for every key that is not Enter, and returning false
+       from a DOM0 handler cancels the event — so the shortcut silently swallowed every
+       keystroke, including Backspace. Typing into the field did nothing at all and it read
+       as a broken input rather than a broken handler. */
+    $('#p').onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+    $('#e').onkeydown = (e) => { if (e.key === 'Enter') submit(); };
 
     on(view, 'click', '[data-demo]', (ev, el) => {
       const [email, password] = el.dataset.demo.split('|');
@@ -163,7 +168,7 @@
       }
     };
     $('#otpGo').onclick = go2;
-    $('#otp').onkeydown = (e) => e.key === 'Enter' && go2();
+    $('#otp').onkeydown = (e) => { if (e.key === 'Enter') go2(); };
     $('#otp').oninput = (e) => {
       e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
       if (e.target.value.length === 6) go2();
