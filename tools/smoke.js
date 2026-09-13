@@ -777,6 +777,28 @@ const PDF_DATA_URL =
   const dealName = 'Smoke Test';
   const dealId = track.json.id;
 
+  console.log('\n· insurance quotes');
+  {
+    /* The commission must never reach a customer. A price with a commission printed beside
+       it invites exactly one question, and the answer is not one anybody wants to give.
+       Asserted by scanning the WHOLE response rather than the fields we remembered to
+       check - the first version of the shaper cleaned the list of quotes and forgot that
+       `cheapest` points at the same object. */
+    const ins = await api('POST', '/api/insurance/quote', { value: 2500000, ageYears: 5 });
+    ok('the panel quotes a car', ins.status === 200 && ins.json.quotes.length > 0, ins.json);
+    ok('cheapest first', ins.json.quotes.every((q, i, a) => i === 0 || a[i - 1].premium <= q.premium),
+      ins.json.quotes.map((q) => q.premium));
+    ok('and the cheapest is pointed at', ins.json.cheapest && ins.json.cheapest.premium === ins.json.quotes[0].premium);
+    ok('NO COMMISSION ANYWHERE IN A PUBLIC QUOTE', !/commission/i.test(JSON.stringify(ins.json)),
+      JSON.stringify(ins.json).slice(0, 300));
+    ok('it says who holds the premium', /never handles premium/i.test(ins.json.note || ''), ins.json.note);
+    ok('a car worth nothing is refused', (await api('POST', '/api/insurance/quote', { value: 0 })).status === 400);
+
+    const panel = await api('GET', '/api/insurers');
+    ok('the panel is public', panel.status === 200 && panel.json.length > 0, panel.json && panel.json.length);
+    ok('and carries no commercial terms', !/commission|monthly_fee|monthlyFee|slot/i.test(JSON.stringify(panel.json)));
+  }
+
   console.log('\n· the rest of the deal');
   {
     /* Everything between "the bank said yes" and "here are the keys". The unit tests prove
