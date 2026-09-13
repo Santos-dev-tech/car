@@ -35,6 +35,7 @@
     ['Lenders & rules', 'lenders', '％', 'lenders'],
     ['Insurers', 'insurers', '🛡', 'lenders'],
     ['Policies & commission', 'policies', '📑', 'applications'],
+    ['Invoicing', 'invoicing', '🧾', 'stats'],
     ['Running costs', 'costs', '⛽', 'costs'],
     ['SECTION', 'Setup'],
     ['Dealership', 'dealership', '🏢', 'dealership'],
@@ -1827,6 +1828,211 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
     };
   }
 
+  /**
+   * Invoicing: what each payer owes, itemised, so getting paid is a reconciliation rather
+   * than an argument.
+   *
+   * Nobody pays as the deal happens. A bank adds the month up, checks it against their own
+   * book and settles thirty to sixty days later, and whoever sends the clearer list wins
+   * every disagreement about what is owed. Without a list you are arguing from memory
+   * against a bank's spreadsheet.
+   *
+   * A statement stops moving the moment it is issued — see lib/statement.js for why that
+   * is not optional.
+   */
+  async function pageInvoicing() {
+    view.innerHTML = '<div class="spinner"></div>';
+    const [payers, issued] = await Promise.all([
+      GET('/api/admin/statements/payers'),
+      GET('/api/admin/statements'),
+    ]);
+
+    const payerOptions = payers.payers
+      .map((p, i) => `<option value="${p.type}:${p.id || ''}" ${i === 0 ? 'selected' : ''}>${esc(p.name)} — ${esc(p.pays)}</option>`)
+      .join('');
+
+    view.innerHTML = `
+      <h2>Invoicing</h2>
+      <p class="muted" style="margin-top:-6px">Every deal, itemised, per payer, per month.
+        Send the list and the conversation is about a date rather than about a number.</p>
+
+      <div class="kpis mt">
+        <div class="kpi"><div class="k">Outstanding</div><div class="v">${KES(issued.outstanding)}</div>
+          <div class="d">Invoiced and not yet paid</div></div>
+        <div class="kpi"><div class="k">Overdue</div><div class="v">${KES(issued.overdue)}</div>
+          <div class="d">${issued.overdue ? 'Past the date you gave them' : 'Nothing late'}</div></div>
+        <div class="kpi"><div class="k">Collected</div><div class="v">${KES(issued.collected)}</div>
+          <div class="d">Actually in the bank</div></div>
+      </div>
+
+      <div class="card mt">
+        <div class="lbl">Build a statement</div>
+        <div class="row wrap-r" style="gap:12px;align-items:flex-end">
+          <div class="field" style="flex:2;min-width:240px">
+            <label for="stPayer">Who is paying</label>
+            <select id="stPayer">${payerOptions}</select>
+          </div>
+          <div class="field" style="flex:1;min-width:150px">
+            <label for="stMonth">Which month</label>
+            <select id="stMonth">${payers.months.map((m) => `<option value="${m}">${esc(monthLabel(m))}</option>`).join('')}</select>
+          </div>
+          <button class="btn" id="stGo">Show me</button>
+        </div>
+        <div id="stOut" class="mt"></div>
+      </div>
+
+      <h3 class="mt-lg">Issued (${issued.items.length})</h3>
+      ${
+        issued.items.length
+          ? `<div class="scroll-x"><table class="tbl">
+              <thead><tr><th>Invoice</th><th>Who</th><th>Month</th><th class="num">Lines</th>
+                <th class="num">Total</th><th>Due</th><th>Status</th><th></th></tr></thead>
+              <tbody>${issued.items.map((i) => `
+                <tr>
+                  <td><code>${esc(i.ref)}</code></td>
+                  <td>${esc(i.payer)}<div class="dim" style="font-size:.8rem">${esc(i.payerType)}</div></td>
+                  <td>${esc(monthLabel(i.period))}</td>
+                  <td class="num">${i.lines}</td>
+                  <td class="num"><b>${KES(i.total)}</b></td>
+                  <td class="dim">${esc(i.dueBy || '—')}</td>
+                  <td>${
+                    i.status === 'paid'
+                      ? `<span class="tag ok">Paid</span>${i.paidRef ? `<div class="dim" style="font-size:.78rem">${esc(i.paidRef)}</div>` : ''}`
+                      : i.overdue
+                        ? `<span class="tag err">${i.daysLate} days late</span>`
+                        : '<span class="tag warn">Waiting</span>'
+                  }</td>
+                  <td class="row" style="gap:6px">
+                    <button class="btn sm" data-st-open="${i.id}">Open</button>
+                    <a class="btn sm ghost" href="/api/admin/statements/${i.id}/csv">CSV</a>
+                    ${i.status === 'paid' ? '' : `<button class="btn sm primary" data-st-paid="${i.id}">Paid</button>`}
+                  </td>
+                </tr>`).join('')}</tbody></table></div>`
+          : '<div class="empty">Nothing invoiced yet. Build a statement above and issue it.</div>'
+      }`;
+
+    $('#stGo').onclick = preview;
+    $$('[data-st-open]').forEach((b) => { b.onclick = () => openStatement(Number(b.getAttribute('data-st-open'))); });
+    $$('[data-st-paid]').forEach((b) => { b.onclick = () => markPaid(Number(b.getAttribute('data-st-paid'))); });
+
+    async function preview() {
+      const out = $('#stOut');
+      const [type, id] = $('#stPayer').value.split(':');
+      const period = $('#stMonth').value;
+      out.innerHTML = '<div class="spinner"></div>';
+      let d;
+      try {
+        d = await GET(`/api/admin/statements/preview?payerType=${encodeURIComponent(type)}`
+          + `&payerId=${encodeURIComponent(id)}&period=${encodeURIComponent(period)}`);
+      } catch (e) {
+        out.innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        return;
+      }
+      out.innerHTML = `
+        <hr>
+        <div class="row between wrap-r">
+          <div><b>${esc(d.payerName)}</b> · ${esc(d.periodLabel)}
+            <div class="dim" style="font-size:.84rem">${esc(d.terms)}</div></div>
+          <div style="text-align:right"><div style="font-size:1.5rem;font-weight:700">${KES(d.total)}</div>
+            <div class="dim" style="font-size:.8rem">due by ${esc(d.dueBy)}</div></div>
+        </div>
+        ${statementLines(d)}
+        <p class="dim mt" style="font-size:.8rem">${esc(d.note)}</p>
+        ${
+          d.alreadyIssued
+            ? `<div class="form-note warn mt"><span>!</span><div>Already invoiced as
+                 <code>${esc(d.alreadyIssued.ref)}</code> for ${KES(d.alreadyIssued.total)}.
+                 A payer is never invoiced twice for the same month.</div></div>`
+            : d.count
+              ? `<button class="btn primary lg mt" id="stIssue">Issue this statement</button>
+                 <p class="dim" style="font-size:.78rem">From then on the figures stop moving,
+                   even if a deal changes afterwards. That is what makes it an invoice.</p>`
+              : '<div class="empty mt">Nothing funded in this month for this payer.</div>'
+        }
+        <div id="stMsg" class="mt"></div>`;
+
+      const btn = $('#stIssue');
+      if (btn) btn.onclick = async () => {
+        btn.disabled = true;
+        try {
+          const r = await POST('/api/admin/statements', { payerType: type, payerId: id || null, period });
+          toast(`${r.ref} issued — ${KES(r.total)}, due ${r.dueBy}`, 'ok');
+          render();
+        } catch (e) {
+          $('#stMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+          btn.disabled = false;
+        }
+      };
+    }
+  }
+
+  function statementLines(d) {
+    if (!d.lines.length) return '';
+    return `<div class="scroll-x mt"><table class="tbl">
+      <thead><tr><th>Reference</th><th>Date</th><th>Customer</th><th>Car</th><th>Basis</th><th class="num">Amount</th></tr></thead>
+      <tbody>${d.lines.map((l) => `
+        <tr>
+          <td><code>${esc(l.ref)}</code></td>
+          <td class="dim">${esc(l.date || '—')}</td>
+          <td>${esc(l.customer || '—')}</td>
+          <td class="dim">${esc(l.vehicle || '—')}</td>
+          <td class="dim">${esc(l.basis || '')}</td>
+          <td class="num">${KES(l.amount)}</td>
+        </tr>`).join('')}
+        <tr><td colspan="5" class="num"><b>Total</b></td><td class="num"><b>${KES(d.total)}</b></td></tr>
+      </tbody></table></div>`;
+  }
+
+  const monthLabel = (m) => {
+    const [y, mo] = String(m || '').split('-');
+    if (!y || !mo) return m || '';
+    return new Date(Date.UTC(Number(y), Number(mo) - 1, 1))
+      .toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  };
+
+  async function openStatement(id) {
+    const d = await GET(`/api/admin/statements/${id}`);
+    modal(d.ref, `
+      <div class="row between wrap-r">
+        <div><b>${esc(d.payerName)}</b> · ${esc(d.periodLabel)}
+          <div class="dim" style="font-size:.84rem">${esc(d.terms || '')}</div></div>
+        <div style="text-align:right"><div style="font-size:1.5rem;font-weight:700">${KES(d.total)}</div>
+          <div class="dim" style="font-size:.8rem">due by ${esc(d.dueBy || '—')}</div></div>
+      </div>
+      ${statementLines(d)}
+      <p class="dim mt" style="font-size:.8rem">${esc(d.frozen)}</p>
+      <a class="btn mt" href="/api/admin/statements/${d.id}/csv">Download as a spreadsheet</a>`, { wide: true });
+  }
+
+  function markPaid(id) {
+    const m = modal('Mark as paid', `
+      <div class="grid-2">
+        <div class="field"><label for="pdRef">Their payment reference</label><input type="text" id="pdRef"></div>
+        <div class="field"><label for="pdAmt">Amount received</label><input type="number" id="pdAmt" inputmode="numeric"></div>
+      </div>
+      <p class="dim mt" style="font-size:.8rem">Leave the amount blank if they paid it in full.
+        A short payment is recorded as what actually arrived — the invoiced figure is not
+        overwritten, because a gap is a conversation to have rather than a number to lose.</p>
+      <button class="btn primary block lg mt" id="pdGo">Record the payment</button>
+      <div id="pdMsg" class="mt"></div>`);
+    $('#pdGo').onclick = async () => {
+      const btn = $('#pdGo');
+      btn.disabled = true;
+      try {
+        const r = await POST(`/api/admin/statements/${id}/paid`, {
+          reference: $('#pdRef').value,
+          amount: Number($('#pdAmt').value) || undefined,
+        });
+        toast(r.short ? 'Recorded — but they paid short' : 'Recorded', r.short ? 'warn' : 'ok');
+        m.close();
+        render();
+      } catch (e) {
+        $('#pdMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        btn.disabled = false;
+      }
+    };
+  }
+
   async function pageBrokerClients() {
     view.innerHTML = '<div class="spinner"></div>';
     const b = await GET('/api/admin/broker/book');
@@ -2867,6 +3073,8 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
           return await pageInsurers();
         case 'policies':
           return await pagePolicies();
+        case 'invoicing':
+          return await pageInvoicing();
         case 'leads':
           return await pageLeads();
         case 'dealership':

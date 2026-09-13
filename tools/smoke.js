@@ -926,6 +926,86 @@ const PDF_DATA_URL =
       detail.signatures.length === 2 && detail.signatures.every((x) => x.ip === undefined), detail.signatures);
   }
 
+  console.log('\n· invoicing');
+  {
+    /* The deal above was funded through the whole flow, so it is the one line on this
+       month's statement. What matters here is that issuing FREEZES it: an invoice whose
+       total moves after it has been sent is worthless, and a payer invoiced twice for the
+       same month is a mistake that costs the relationship rather than the money. */
+    const payers = await api('GET', '/api/admin/statements/payers');
+    ok('there is somebody to invoice', payers.status === 200 && payers.json.payers.length > 0, payers.json);
+    ok('the dealership is one of them', payers.json.payers.some((x) => x.type === 'dealer'));
+    ok('so are the banks', payers.json.payers.some((x) => x.type === 'bank'));
+    ok('and the insurers', payers.json.payers.some((x) => x.type === 'insurer'));
+    ok('this month is always offered', payers.json.months.length > 0, payers.json.months);
+
+    /* The deal was signed, paid, insured and handed over above — but nothing had told the
+       system the LENDER had released the money, which is the event everything is invoiced
+       from. Do it here, because funded_at is stamped exactly once at that moment and a
+       statement that cannot see it is a statement of nothing. */
+    const fundIt = await api('PATCH', `/api/admin/applications/${dealId}`, { status: 'disbursed' });
+    ok('a deal can be marked funded', fundIt.status === 200, fundIt.json);
+    const funded = (await api('GET', `/api/admin/applications/${dealId}`)).json;
+    ok('and that stamps the day the money moved', !!funded.funded_at, funded.funded_at);
+
+    const stamp = funded.funded_at;
+    await api('PATCH', `/api/admin/applications/${dealId}`, { status: 'delivered' });
+    const again = (await api('GET', `/api/admin/applications/${dealId}`)).json;
+    ok('which never moves again, however the deal is touched afterwards',
+      again.funded_at === stamp, [stamp, again.funded_at]);
+
+    const period = new Date().toISOString().slice(0, 7);
+    /* THIS SUITE RUNS AGAINST A DATABASE THAT PERSISTS. A second run in the same calendar
+       month meets a statement the first run already issued, which is the duplicate guard
+       working rather than a defect — so the block below accepts either state and asserts
+       the guard explicitly instead of assuming a clean month. */
+    const before = (await api('GET', '/api/admin/statements')).json.items.length;
+    const pre = await api('GET', `/api/admin/statements/preview?payerType=dealer&period=${period}`);
+    ok('a statement can be previewed', pre.status === 200, pre.json);
+    ok('it carries the terms it was priced on', !!pre.json.terms, pre.json.terms);
+    ok('and a due DATE rather than the word monthly', /^\d{4}-\d{2}-15$/.test(pre.json.dueBy), pre.json.dueBy);
+    ok('the deal funded in this run is on it', pre.json.lines.some((l) => l.ref === dealRef),
+      pre.json.lines.map((l) => l.ref));
+    ok('previewing writes nothing',
+      (await api('GET', '/api/admin/statements')).json.items.length === before);
+
+    let issued = await api('POST', '/api/admin/statements', { payerType: 'dealer', period });
+    const wasAlreadyThere = issued.status === 409;
+    if (wasAlreadyThere) {
+      const row = (await api('GET', '/api/admin/statements')).json.items
+        .find((x) => x.payerType === 'dealer' && x.period === period);
+      issued = { status: 200, json: { id: row.id, ref: row.ref, total: row.total, dueBy: row.dueBy } };
+    }
+    ok('there is an issued statement for this month', /^INV-/.test(issued.json.ref), issued.json);
+    ok('the same payer cannot be invoiced twice for one month',
+      (await api('POST', '/api/admin/statements', { payerType: 'dealer', period })).status === 409);
+
+    const list = await api('GET', '/api/admin/statements');
+    ok('it appears on the list', list.json.items.some((x) => x.ref === issued.json.ref));
+
+    const one = await api('GET', `/api/admin/statements/${issued.json.id}`);
+    ok('an issued statement reads back from its own snapshot', one.json.lines.length > 0, one.json.count);
+    ok('and says the figures do not move', /do not change/i.test(one.json.frozen || ''), one.json.frozen);
+    ok('the stored total matches the stored lines',
+      one.json.lines.reduce((n, l) => n + l.amount, 0) === one.json.total, [one.json.total]);
+
+    const csv = await api('GET', `/api/admin/statements/${issued.json.id}/csv`);
+    ok('it comes as a spreadsheet too', csv.status === 200);
+
+    if (one.json.status !== 'paid') {
+      const paid = await api('POST', `/api/admin/statements/${issued.json.id}/paid`, { reference: 'SMOKE-PAY-1' });
+      ok('it can be marked paid', paid.status === 200 && paid.json.short === false, paid.json);
+    }
+    ok('and not marked paid twice',
+      (await api('POST', `/api/admin/statements/${issued.json.id}/paid`, {})).status === 400);
+    const after = await api('GET', '/api/admin/statements');
+    ok('paid money is counted as collected, not outstanding',
+      after.json.collected >= issued.json.total, [after.json.collected, after.json.outstanding]);
+
+    ok('an unknown payer type is refused',
+      (await api('GET', `/api/admin/statements/preview?payerType=nobody&period=${period}`)).status === 400);
+  }
+
   console.log('\n· role permissions');
   {
     /* Hiding a menu item is decoration. These check the SERVER refuses, which is the

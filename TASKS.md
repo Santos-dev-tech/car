@@ -275,6 +275,41 @@ Proof: `tools/insurance-test.js` (56 assertions, no server).
 
 ---
 
+## H. Getting paid
+
+Three parties pay this platform and none of them pay as the deal happens. A bank adds the
+month up, reconciles it against their own book and settles thirty to sixty days later.
+Whoever sends the clearer list wins every disagreement about what is owed — and without a
+list you are arguing from memory against a bank's spreadsheet.
+
+Proof: `tools/statement-test.js` (59 assertions, no server) and the `· invoicing` section of
+`tools/smoke.js`.
+
+- [x] **H1 A statement per payer per month** — bank, dealership or insurer, itemised down to
+      the deal reference, with the basis for every line and a total at the bottom.
+- [x] **H2 Funded is a date, not a status** — `funded_at`, stamped once at disbursement and
+      never rewritten, so a deal cancelled in March is still on January's statement.
+- [x] **H3 An issued statement is frozen** — the lines and the total are written into the
+      row. An invoice whose figures move after it was sent is worthless.
+- [x] **H4 Nobody is invoiced twice for one month** — enforced by a unique index, not by a
+      check somebody can forget.
+- [x] **H5 A due date, not the word "monthly"** — the 15th of the following month, printed
+      on the statement and on the spreadsheet.
+- [x] **H6 The bank pays the greater of a fee and a percentage** — and the line shows which
+      applied and the working behind it.
+- [x] **H7 The dealership pays by band** — a yard moving Vitzes cannot pay what one moving
+      Land Cruisers pays, and a flat fee makes the cheap end of the stock not worth listing.
+- [x] **H8 The insurer pays on cover that went on risk** — dated from the day cover started,
+      not from the day the quote was accepted, plus the slot fee as its own line.
+- [x] **H9 A spreadsheet, properly escaped** — a comma or a newline in a customer's name
+      cannot shift the columns.
+- [x] **H10 Overdue is computed, never stored** — a stored flag needs a nightly job, and the
+      night it does not run is the night you stop chasing.
+- [x] **H11 A short payment is recorded as what arrived** — the invoiced figure is not
+      overwritten, because the gap is a conversation to have rather than a number to lose.
+
+---
+
 ## Deliberately not built
 
 - **A blog / CMS.** The nav in the reference video had one. It is a content system, not a

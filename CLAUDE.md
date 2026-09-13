@@ -104,15 +104,16 @@ node --no-warnings tools/inventory-test.js    # 63  stock ageing + repricing, no
 node --no-warnings tools/broker-test.js       # 102 attribution + verification, no server
 node --no-warnings tools/deal-test.js         # 52  signing, balance, insurance, handover, no server
 node --no-warnings tools/insurance-test.js    # 56  quotes, the commission cap, renewals, no server
-node --no-warnings tools/smoke.js 4000        # 348 the whole API, needs the server up
+node --no-warnings tools/statement-test.js    # 59  monthly statements and the month boundary, no server
+node --no-warnings tools/smoke.js 4000        # 371 the whole API, needs the server up
 ```
 
-**934 assertions. All eleven pass.** Each exits with its failure count, so any of them can
+**1,016 assertions. All twelve pass.** Each exits with its failure count, so any of them can
 gate a deploy. `audit.js` is the one that matters before anything goes public — it greps
 for committed secrets, refuses third-party imports, and asserts the named security controls
 and front-end invariants are still in place.
 
-Run all eleven after any change to `lib/`. Run `audit.js` after any change to `public/`.
+Run all twelve after any change to `lib/`. Run `audit.js` after any change to `public/`.
 
 **Restart the server between smoke runs.** The login limiter and the booking limiter are
 in-memory, and a second run against the same process trips them — the suite then fails on
@@ -174,6 +175,7 @@ lib/security.js    validation, rate limiting, encryption, OTP, uploads, headers
 lib/commerce.js    booking deposits, payment providers, offer letters
 lib/deal.js        what is left between the finance and the keys, and who is waiting
 lib/insurance.js   the panel, the quotes, the commission cap and the renewal book
+lib/statement.js   what each payer owes for a month, and why it stops moving once issued
 lib/jobs.js        the self-refreshing fuel price schedule
 lib/seed.js        demo dealerships, lenders, stock, staff
 lib/demo.js        sample pipeline so the console is not empty on first run
@@ -241,6 +243,21 @@ honours it, and only admin tooling calls it that way.
 **Any new endpoint that looks a record up by reference must check `dealer_id` against
 `siteDealer()`.** The tracker, offer letter, booking status and document upload all shipped
 without that check and leaked across dealerships until it was added.
+
+### An issued statement is frozen
+
+`lib/statement.js` builds a month from the data; `POST /api/admin/statements` writes the
+lines and the total into the row, and everything afterwards reads that snapshot. A live
+query re-run in March gives a different answer for January than it gave in February, and an
+invoice whose total moves after it has been sent is worthless.
+
+Two rules hold it up, and both are enforced rather than remembered:
+
+- **Funded is a date, not a status.** `applications.funded_at` is stamped once, the first
+  time a deal reaches `disbursed`, and never rewritten. A deal cancelled in March was still
+  funded in January. Never invoice off `status` or `updated_at`.
+- **One statement per payer per period**, enforced by a unique index. Invoicing the same
+  bank twice for one month costs the relationship, not the money.
 
 ### Never take premium money
 
