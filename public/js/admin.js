@@ -33,6 +33,8 @@
     ['My verification', 'verify', '🛡', 'broker'],
     ['SECTION', 'Finance'],
     ['Lenders & rules', 'lenders', '％', 'lenders'],
+    ['Insurers', 'insurers', '🛡', 'lenders'],
+    ['Policies & commission', 'policies', '📑', 'applications'],
     ['Running costs', 'costs', '⛽', 'costs'],
     ['SECTION', 'Setup'],
     ['Dealership', 'dealership', '🏢', 'dealership'],
@@ -1559,6 +1561,272 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
     $('#dgHand').onclick = () => run('dgHand', () => POST(`/api/admin/applications/${id}/handover`, { note: $('#dgNote').value }));
   }
 
+  /**
+   * The insurance panel: who is on it, what they charge, and what they pay.
+   *
+   * The commission column is the reason this screen exists, and it is capped in the
+   * engine rather than in a form. Motor commission is limited to 10% of premium by the
+   * Eleventh Schedule of the Insurance Regulations — a number typed in here at half past
+   * six should not be able to put anyone outside it, so a higher figure is shown as
+   * capped rather than silently obeyed or silently refused.
+   */
+  async function pageInsurers() {
+    view.innerHTML = '<div class="spinner"></div>';
+    const rows = await GET('/api/admin/insurers');
+
+    view.innerHTML = `
+      <div class="row between wrap-r">
+        <div><h2>Insurers</h2>
+          <p class="muted" style="margin-top:-6px">Every quote a customer sees is priced from these rows.
+            Two insurers disagreeing is the point — a panel where everyone quotes the same has no reason to exist.</p></div>
+        <button class="btn" id="insAdd">Add an insurer</button>
+      </div>
+
+      <div class="form-note mt"><span>i</span><div>Premiums are paid by the customer straight to the
+        insurer. This platform never receives premium money — an intermediary holding premium is an
+        offence under section 156(2) of the Insurance Act. Do not ask a customer to pay a premium here.</div></div>
+
+      <div class="scroll-x mt"><table class="tbl">
+        <thead><tr><th>Insurer</th><th class="num">Comprehensive</th><th class="num">Minimum</th>
+          <th class="num">Third party</th><th class="num">Max age</th><th class="num">Commission</th>
+          <th>Slot</th><th></th></tr></thead>
+        <tbody>${rows.map((i) => `
+          <tr>
+            <td><b>${esc(i.name)}</b>${i.active ? '' : ' <span class="tag">off</span>'}
+              <div class="dim" style="font-size:.8rem">${esc((i.contact && i.contact.phone) || '')}</div></td>
+            <td class="num">${i.comprehensiveRate}% of value</td>
+            <td class="num">${KES(i.minPremium)}</td>
+            <td class="num">${KES(i.thirdPartyPremium)}</td>
+            <td class="num">${i.maxVehicleAge || '—'} yrs</td>
+            <td class="num"><b>${i.commissionPct}%</b>
+              ${i.commissionCapped ? `<div class="tag warn">capped from ${i.commissionStored}%</div>` : ''}</td>
+            <td>${
+              i.slotExclusive
+                ? `<span class="tag ok">Exclusive</span><div class="dim" style="font-size:.78rem">to ${esc(i.slotUntil || '—')}</div>`
+                : i.monthlyFee ? `<span class="tag">${KES(i.monthlyFee)}/mo</span>` : '<span class="dim">—</span>'
+            }</td>
+            <td><button class="btn sm" data-ins-edit="${i.id}">Edit</button></td>
+          </tr>`).join('')}</tbody></table></div>
+
+      <p class="dim mt" style="font-size:.8rem">Commission is capped at ${rows.length ? rows[0].commissionCap : 10}% of
+        premium for motor business by law. Anything stored above that is used at the cap.</p>`;
+
+    $('#insAdd').onclick = () => editInsurer(null);
+    $$('[data-ins-edit]').forEach((b) => {
+      b.onclick = () => editInsurer(rows.find((r) => r.id === Number(b.getAttribute('data-ins-edit'))));
+    });
+  }
+
+  function editInsurer(i) {
+    const v = i || {};
+    const m = modal(i ? 'Edit ' + v.name : 'Add an insurer', `
+      <div class="grid-2">
+        <div class="field"><label for="isName">Name</label><input type="text" id="isName" value="${esc(v.name || '')}"></div>
+        <div class="field"><label for="isShort">Short name</label><input type="text" id="isShort" value="${esc(v.shortName || '')}"></div>
+      </div>
+      <div class="grid-3 mt">
+        <div class="field"><label for="isRate">Comprehensive rate (% of value)</label><input type="number" step="0.05" id="isRate" value="${v.comprehensiveRate != null ? v.comprehensiveRate : 4}"></div>
+        <div class="field"><label for="isMin">Minimum premium</label><input type="number" id="isMin" value="${v.minPremium != null ? v.minPremium : 25000}"></div>
+        <div class="field"><label for="isTp">Third party premium</label><input type="number" id="isTp" value="${v.thirdPartyPremium != null ? v.thirdPartyPremium : 7500}"></div>
+      </div>
+      <div class="grid-3 mt">
+        <div class="field"><label for="isAge">Oldest car they will cover (years)</label><input type="number" id="isAge" value="${v.maxVehicleAge || 15}"></div>
+        <div class="field"><label for="isComm">Commission (%)</label><input type="number" step="0.5" id="isComm" value="${v.commissionStored != null ? v.commissionStored : 10}"></div>
+        <div class="field"><label for="isClaim">Claims settled in (days)</label><input type="number" id="isClaim" value="${v.claimDays || 21}"></div>
+      </div>
+      <div class="form-note mt"><span>!</span><div>Motor commission is capped at 10% of premium by law.
+        A higher figure here is stored but used at 10%.</div></div>
+
+      <hr>
+      <div class="lbl">What they are paying for</div>
+      <div class="grid-3">
+        <div class="field"><label for="isFee">Monthly slot fee</label><input type="number" id="isFee" value="${v.monthlyFee || 0}"></div>
+        <div class="field"><label for="isUntil">Slot promised until</label><input type="date" id="isUntil" value="${esc((v.slotUntil || '').slice(0, 10))}"></div>
+        <div class="field"><label class="check" style="margin-top:22px"><input type="checkbox" id="isExcl" ${v.slotExclusive ? 'checked' : ''}> <span>Exclusive — the only motor insurer shown</span></label></div>
+      </div>
+      <div class="grid-2 mt">
+        <div class="field"><label for="isPhone">Contact phone</label><input type="tel" id="isPhone" value="${esc((v.contact && v.contact.phone) || '')}"></div>
+        <div class="field"><label class="check" style="margin-top:22px"><input type="checkbox" id="isActive" ${v.active === false ? '' : 'checked'}> <span>Quoting</span></label></div>
+      </div>
+      <button class="btn primary block lg mt" id="isSave">Save</button>
+      <div id="isMsg" class="mt"></div>`, { wide: true });
+
+    $('#isSave').onclick = async () => {
+      const btn = $('#isSave');
+      btn.disabled = true;
+      const body = {
+        name: $('#isName').value,
+        short_name: $('#isShort').value,
+        comprehensive_rate: Number($('#isRate').value) || 0,
+        min_premium: Number($('#isMin').value) || 0,
+        third_party_premium: Number($('#isTp').value) || 0,
+        max_vehicle_age_years: Number($('#isAge').value) || 0,
+        commission_pct: Number($('#isComm').value) || 0,
+        claim_days: Number($('#isClaim').value) || 0,
+        monthly_fee: Number($('#isFee').value) || 0,
+        slot_until: $('#isUntil').value || null,
+        slot_exclusive: $('#isExcl').checked ? 1 : 0,
+        contact_phone: $('#isPhone').value,
+        active: $('#isActive').checked ? 1 : 0,
+      };
+      try {
+        if (i) await PATCH(`/api/admin/insurers/${i.id}`, body);
+        else await POST('/api/admin/insurers', body);
+        toast('Saved', 'ok');
+        m.close();
+        render();
+      } catch (e) {
+        $('#isMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        btn.disabled = false;
+      }
+    };
+  }
+
+  /**
+   * Policies placed, and what they are worth.
+   *
+   * RENEWALS ARE THE BUSINESS. A policy placed once pays once; a policy renewed for six
+   * years pays six times off one introduction. The only thing between those two outcomes
+   * is somebody ringing the customer before the cover lapses — so the renewal list is the
+   * top of this page, not a tab somebody has to remember to open.
+   */
+  async function pagePolicies() {
+    view.innerHTML = '<div class="spinner"></div>';
+    const d = await GET('/api/admin/policies');
+
+    view.innerHTML = `
+      <h2>Policies &amp; commission</h2>
+      <p class="muted" style="margin-top:-6px">Every policy placed through the app, and what it earns.</p>
+
+      <div class="kpis mt">
+        <div class="kpi"><div class="k">Live policies</div><div class="v">${d.liveCount}</div>
+          <div class="d">On risk right now</div></div>
+        <div class="kpi"><div class="k">Commission accrued</div><div class="v">${KES(d.accrued)}</div>
+          <div class="d">On policies placed and accepted</div></div>
+        <div class="kpi"><div class="k">Renewing in 60 days</div><div class="v">${d.renewals.length}</div>
+          <div class="d">${KES(d.renewalValue)} of commission at stake</div></div>
+      </div>
+
+      ${
+        d.renewals.length
+          ? `<h3 class="mt-lg">Ring these people</h3>
+             <div class="scroll-x"><table class="tbl">
+               <thead><tr><th>Customer</th><th>Phone</th><th>Insurer</th><th>Car</th>
+                 <th class="num">Premium</th><th class="num">You earn</th><th>Expires</th><th></th></tr></thead>
+               <tbody>${d.renewals.map((r) => `
+                 <tr>
+                   <td><b>${esc(r.customer)}</b></td>
+                   <td>${esc(r.phone || '—')}</td>
+                   <td>${esc(r.insurer || '—')}</td>
+                   <td class="dim">${esc(r.vehicle || '—')}</td>
+                   <td class="num">${KES(r.premium)}</td>
+                   <td class="num">${KES(r.commission)}</td>
+                   <td><span class="tag ${r.lapsed ? 'err' : r.daysLeft <= 14 ? 'warn' : ''}">${
+                     r.lapsed ? 'LAPSED ' + Math.abs(r.daysLeft) + 'd ago' : r.daysLeft + ' days'
+                   }</span></td>
+                   <td><button class="btn sm" data-renew="${r.id}">Renew</button></td>
+                 </tr>`).join('')}</tbody></table></div>
+             <p class="dim mt" style="font-size:.8rem">A financed car with lapsed cover breaks the loan
+               agreement and breaks the law. Lapsed rows stay on this list rather than dropping off it.</p>`
+          : '<div class="empty mt-lg">Nothing renewing in the next 60 days.</div>'
+      }
+
+      <h3 class="mt-lg">All policies (${d.items.length})</h3>
+      ${
+        d.items.length
+          ? `<div class="scroll-x"><table class="tbl">
+              <thead><tr><th>Ref</th><th>Customer</th><th>Insurer</th><th>Cover</th>
+                <th class="num">Premium</th><th class="num">Commission</th><th>Status</th><th></th></tr></thead>
+              <tbody>${d.items.map((p) => `
+                <tr>
+                  <td><code>${esc(p.ref)}</code></td>
+                  <td>${esc(p.customer)}<div class="dim" style="font-size:.8rem">${esc(p.vehicle || '')}</div></td>
+                  <td>${esc(p.insurer || '—')}</td>
+                  <td class="dim">${p.cover === 'comprehensive' ? 'Comprehensive' : 'Third party'}</td>
+                  <td class="num">${KES(p.premium)}</td>
+                  <td class="num">${KES(p.commission)} <span class="dim">(${p.commissionPct}%)</span></td>
+                  <td><span class="tag ${POLICY_TONE[p.status] || ''}">${esc(titleCase(p.status))}</span>
+                    ${p.policyNo ? `<div class="dim" style="font-size:.78rem">${esc(p.policyNo)}</div>` : ''}</td>
+                  <td>${p.status === 'requested' ? `<button class="btn sm primary" data-confirm="${p.id}">Cover note</button>` : ''}</td>
+                </tr>`).join('')}</tbody></table></div>`
+          : '<div class="empty">No policies yet. They appear the moment a buyer picks an insurer on their tracker.</div>'
+      }
+
+      <div class="form-note mt"><span>i</span><div>${esc(d.premiumNote)}</div></div>
+      <p class="dim" style="font-size:.8rem">${esc(d.capNote)}</p>`;
+
+    $$('[data-confirm]').forEach((b) => {
+      b.onclick = () => confirmPolicy(Number(b.getAttribute('data-confirm')));
+    });
+    $$('[data-renew]').forEach((b) => {
+      b.onclick = () => renewPolicy(Number(b.getAttribute('data-renew')));
+    });
+  }
+
+  const POLICY_TONE = { active: 'ok', requested: 'warn', lapsed: 'err', cancelled: 'err', renewed: '' };
+
+  function confirmPolicy(id) {
+    const today = new Date().toISOString().slice(0, 10);
+    const m = modal('The cover note arrived', `
+      <p class="muted" style="font-size:.88rem">Type what is on the certificate in front of you.
+        This is the only thing that makes the policy real — and it also clears the insurance
+        block on the handover, so the car can be released.</p>
+      <div class="grid-3">
+        <div class="field"><label for="cpNo">Policy / cover note number</label><input type="text" id="cpNo"></div>
+        <div class="field"><label for="cpFrom">Cover starts</label><input type="date" id="cpFrom" value="${today}"></div>
+        <div class="field"><label for="cpTo">Cover expires</label><input type="date" id="cpTo"></div>
+      </div>
+      <p class="dim mt" style="font-size:.8rem">Leave the end date blank for a standard one-year policy.</p>
+      <button class="btn primary block lg mt" id="cpGo">Confirm the cover</button>
+      <div id="cpMsg" class="mt"></div>`);
+    $('#cpGo').onclick = async () => {
+      const btn = $('#cpGo');
+      btn.disabled = true;
+      try {
+        await POST(`/api/admin/policies/${id}/confirm`, {
+          policyNo: $('#cpNo').value, starts: $('#cpFrom').value, expiry: $('#cpTo').value,
+        });
+        toast('Cover confirmed', 'ok');
+        m.close();
+        render();
+      } catch (e) {
+        $('#cpMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        btn.disabled = false;
+      }
+    };
+  }
+
+  function renewPolicy(id) {
+    const m = modal('Renew this policy', `
+      <p class="muted" style="font-size:.88rem">A renewal is a new policy linked to the old one,
+        so the book can be counted year on year — and whoever introduced the customer is still
+        credited. That is the difference between a commission and a tip.</p>
+      <div class="grid-2">
+        <div class="field"><label for="rnPrem">Premium for the coming year</label><input type="number" id="rnPrem" inputmode="numeric"></div>
+        <div class="field"><label for="rnFrom">Starts</label><input type="date" id="rnFrom"></div>
+      </div>
+      <p class="dim mt" style="font-size:.8rem">Leave both blank to carry last year's premium and start
+        the day the old cover ends.</p>
+      <button class="btn primary block lg mt" id="rnGo">Create the renewal</button>
+      <div id="rnMsg" class="mt"></div>`);
+    $('#rnGo').onclick = async () => {
+      const btn = $('#rnGo');
+      btn.disabled = true;
+      try {
+        await POST(`/api/admin/policies/${id}/renew`, {
+          premium: Number($('#rnPrem').value) || undefined,
+          starts: $('#rnFrom').value || undefined,
+        });
+        toast('Renewal created', 'ok');
+        m.close();
+        render();
+      } catch (e) {
+        $('#rnMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        btn.disabled = false;
+      }
+    };
+  }
+
   async function pageBrokerClients() {
     view.innerHTML = '<div class="spinner"></div>';
     const b = await GET('/api/admin/broker/book');
@@ -2595,6 +2863,10 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
           return await pageBrokerVerify();
         case 'lenders':
           return await pageLenders();
+        case 'insurers':
+          return await pageInsurers();
+        case 'policies':
+          return await pagePolicies();
         case 'leads':
           return await pageLeads();
         case 'dealership':

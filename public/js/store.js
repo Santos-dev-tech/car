@@ -3016,14 +3016,28 @@
     };
   }
 
-  /* ---- insurance ---- */
-  function dealInsurance(box, ref, phone, back) {
+  /* ---- insurance ----
+     Two doors, and the order matters. Most buyers arriving here do NOT already have cover
+     — they are buying a car today and the yard will not release it uninsured — so the
+     panel of real prices comes first and "I already have cover" is the second option.
+     A form that opens asking for a policy number assumes a policy nobody has yet. */
+  async function dealInsurance(box, ref, phone, back) {
     box.innerHTML = `
       <div class="card mt">
-        <div class="lbl">Your insurance</div>
+        <div class="lbl">Insuring the car</div>
         <p class="muted" style="font-size:.86rem">A car cannot legally be driven on a Kenyan
-          road without at least third-party cover. The yard will not release the car until
-          the cover is on file — that protects you as much as them.</p>
+          road without at least third-party cover. The yard will not release it until the
+          cover is on file — that protects you as much as them.</p>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn primary" id="insQuote">Get prices</button>
+          <button class="btn ghost" id="insHave">I already have cover</button>
+        </div>
+        <div id="insOut" class="mt"></div>
+      </div>`;
+
+    $('#insHave').onclick = () => {
+      $('#insOut').innerHTML = `
+        <hr>
         <div class="grid-3">
           <div class="field"><label for="inCo">Insurer</label><input type="text" id="inCo" placeholder="e.g. Jubilee Allianz"></div>
           <div class="field"><label for="inPol">Policy or cover note number</label><input type="text" id="inPol" placeholder="CN/2026/…"></div>
@@ -3031,24 +3045,121 @@
         </div>
         <button class="btn primary mt" id="inGo">Send these to the dealership</button>
         <div id="inMsg" class="mt"></div>
-        <p class="dim mt" style="font-size:.78rem">If you are financing the car, your lender
-          usually wants their interest noted on the policy. Tell your insurer which bank it is.</p>
-      </div>`;
-    $('#inGo').onclick = async () => {
-      const btn = $('#inGo');
-      btn.disabled = true;
-      try {
-        const r = await POST('/api/deal/insurance', {
-          ref, phone,
-          insurer: $('#inCo').value, policy: $('#inPol').value, expiry: $('#inExp').value,
-        });
-        $('#inMsg').innerHTML = `<div class="form-note ok"><span>✓</span><div>${esc(r.note)}</div></div>`;
-        back();
-      } catch (e) {
-        $('#inMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
-        btn.disabled = false;
-      }
+        <p class="dim mt" style="font-size:.78rem">If the car is financed, your lender wants
+          their interest noted on the policy. Tell your insurer which bank it is.</p>`;
+      $('#inGo').onclick = async () => {
+        const btn = $('#inGo');
+        btn.disabled = true;
+        try {
+          const r = await POST('/api/deal/insurance', {
+            ref, phone,
+            insurer: $('#inCo').value, policy: $('#inPol').value, expiry: $('#inExp').value,
+          });
+          $('#inMsg').innerHTML = `<div class="form-note ok"><span>✓</span><div>${esc(r.note)}</div></div>`;
+          back();
+        } catch (e) {
+          $('#inMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+          btn.disabled = false;
+        }
+      };
     };
+
+    let addons = { excess: true };
+    let ncd = 0;
+
+    $('#insQuote').onclick = loadQuotes;
+
+    async function loadQuotes() {
+      const out = $('#insOut');
+      out.innerHTML = '<div class="spinner"></div>';
+      const keys = Object.keys(addons).filter((k) => addons[k]).join(',');
+      let d;
+      try {
+        d = await GET(`/api/deal/insurance/quote?ref=${encodeURIComponent(ref)}&phone=${encodeURIComponent(phone)}`
+          + `&addons=${encodeURIComponent(keys)}&claimFreeYears=${ncd}`);
+      } catch (e) {
+        out.innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        return;
+      }
+
+      out.innerHTML = `
+        <hr>
+        <div class="form-note"><span>i</span><div>${esc(d.requirement)}</div></div>
+
+        <div class="row wrap-r mt" style="gap:14px;align-items:flex-end">
+          <div class="field" style="min-width:190px">
+            <label for="insNcd">Years without a claim</label>
+            <select id="insNcd">
+              ${[0, 1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${n === ncd ? 'selected' : ''}>${n === 0 ? 'None / first policy' : n + (n === 1 ? ' year' : ' years')}</option>`).join('')}
+            </select>
+          </div>
+          <div class="grow">
+            <div class="lbl">Extras</div>
+            <div class="row" style="gap:12px;flex-wrap:wrap">
+              ${(d.quotes[0] ? d.quotes[0].addons : []).map((a) => `
+                <label class="check"><input type="checkbox" data-addon="${esc(a.key)}" ${addons[a.key] ? 'checked' : ''}>
+                  <span>${esc(a.label)} <span class="dim">${KES(a.amount)}</span></span></label>`).join('')}
+            </div>
+          </div>
+        </div>
+
+        ${
+          d.spread > 0
+            ? `<p class="dim mt" style="font-size:.82rem">Same car, same cover: the dearest quote here
+                 is <b>${KES(d.spread)}</b> more than the cheapest. That is the reason to compare.</p>`
+            : ''
+        }
+
+        <div class="quotes mt">
+          ${d.quotes.map((q, n) => `
+            <div class="quote ${n === 0 ? 'is-best' : ''}">
+              <div class="row between">
+                <div>
+                  <b>${esc(q.insurer)}</b>
+                  ${n === 0 ? '<span class="tag ok">Cheapest</span>' : ''}
+                  <div class="dim" style="font-size:.82rem">${esc(q.coverLabel)} · excess ${q.excess ? KES(q.excess) : '—'} · claims in about ${q.claimDays} days</div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-size:1.3rem;font-weight:700">${KES(q.premium)}</div>
+                  <div class="dim" style="font-size:.8rem">a year · ${KES(q.monthly)}/month</div>
+                </div>
+              </div>
+              ${q.noClaimsDiscount ? `<div class="dim" style="font-size:.82rem">Includes ${q.noClaimsPct}% no-claims discount, saving ${KES(q.noClaimsDiscount)}.</div>` : ''}
+              ${q.highlights.length ? `<ul class="ticks">${q.highlights.map((h) => `<li>${esc(h)}</li>`).join('')}</ul>` : ''}
+              <button class="btn ${n === 0 ? 'primary' : ''} mt" data-pick="${q.insurerId}">Choose ${esc(q.shortName)}</button>
+            </div>`).join('')}
+        </div>
+
+        ${
+          d.declined.length
+            ? `<p class="dim mt" style="font-size:.8rem">Not offered on this car:
+                 ${d.declined.map((x) => `${esc(x.shortName)} — ${esc(x.reason)}`).join(' · ')}</p>`
+            : ''
+        }
+        <p class="dim mt" style="font-size:.78rem">${esc(d.note || '')}</p>
+        <div id="insPick" class="mt"></div>`;
+
+      $('#insNcd').onchange = () => { ncd = Number($('#insNcd').value) || 0; loadQuotes(); };
+      $$('[data-addon]').forEach((c) => {
+        c.onchange = () => { addons[c.getAttribute('data-addon')] = c.checked; loadQuotes(); };
+      });
+      $$('[data-pick]').forEach((b) => {
+        b.onclick = async () => {
+          b.disabled = true;
+          try {
+            const r = await POST('/api/deal/insurance/quote', {
+              ref, phone, insurerId: Number(b.getAttribute('data-pick')), addons, claimFreeYears: ncd,
+            });
+            $('#insPick').innerHTML = `<div class="form-note ok"><span>✓</span>
+              <div><b>${esc(r.quote.insurer)}</b> at ${KES(r.quote.premium)} a year. ${esc(r.next)}</div></div>`;
+            back();
+          } catch (e) {
+            $('#insPick').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+            b.disabled = false;
+          }
+        };
+      });
+    }
   }
 
   /* ---- collection ---- */

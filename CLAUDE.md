@@ -103,15 +103,16 @@ node --no-warnings tools/valuation-test.js    # 62  price indicator + depreciati
 node --no-warnings tools/inventory-test.js    # 63  stock ageing + repricing, no server
 node --no-warnings tools/broker-test.js       # 102 attribution + verification, no server
 node --no-warnings tools/deal-test.js         # 52  signing, balance, insurance, handover, no server
+node --no-warnings tools/insurance-test.js    # 56  quotes, the commission cap, renewals, no server
 node --no-warnings tools/smoke.js 4000        # 340 the whole API, needs the server up
 ```
 
-**870 assertions. All ten pass.** Each exits with its failure count, so any of them can
+**926 assertions. All eleven pass.** Each exits with its failure count, so any of them can
 gate a deploy. `audit.js` is the one that matters before anything goes public — it greps
 for committed secrets, refuses third-party imports, and asserts the named security controls
 and front-end invariants are still in place.
 
-Run all ten after any change to `lib/`. Run `audit.js` after any change to `public/`.
+Run all eleven after any change to `lib/`. Run `audit.js` after any change to `public/`.
 
 **Restart the server between smoke runs.** The login limiter and the booking limiter are
 in-memory, and a second run against the same process trips them — the suite then fails on
@@ -172,6 +173,7 @@ lib/performance.js the enthusiast spec sheet: power, 0-100, wheels, the conditio
 lib/security.js    validation, rate limiting, encryption, OTP, uploads, headers
 lib/commerce.js    booking deposits, payment providers, offer letters
 lib/deal.js        what is left between the finance and the keys, and who is waiting
+lib/insurance.js   the panel, the quotes, the commission cap and the renewal book
 lib/jobs.js        the self-refreshing fuel price schedule
 lib/seed.js        demo dealerships, lenders, stock, staff
 lib/demo.js        sample pipeline so the console is not empty on first run
@@ -239,6 +241,19 @@ honours it, and only admin tooling calls it that way.
 **Any new endpoint that looks a record up by reference must check `dealer_id` against
 `siteDealer()`.** The tracker, offer letter, booking status and document upload all shipped
 without that check and leaked across dealerships until it was added.
+
+### Never take premium money
+
+`lib/insurance.js` quotes cover and `policies` records it. Neither takes payment, and the
+`policies` table has no premium_paid column on purpose. Section 156(2) of the Insurance Act
+forbids an intermediary from receiving premium on behalf of an insurer — 20% of the
+unremitted premium, plus a criminal offence for a director. The buyer pays the insurer
+directly. **Do not add a payment route for premiums.**
+
+The other fixed number is the commission cap: motor commission may not exceed **10% of
+premium** (Eleventh Schedule, Insurance Regulations). `commissionRate()` clamps whatever is
+stored rather than trusting the admin form, and the panel screen shows a capped row as
+capped instead of quietly disagreeing with the arithmetic.
 
 ### The handover gate is a gate, not a reminder
 

@@ -23,7 +23,7 @@ if (argFlag('reset')) {
   console.log('· database reset');
 }
 
-const { seedIfEmpty, ensureBrokerAccount, ensureSettlementDefaults } = require('./lib/seed');
+const { seedIfEmpty, ensureBrokerAccount, ensureSettlementDefaults, ensureInsurancePanel } = require('./lib/seed');
 const { seedDemoActivity } = require('./lib/demo');
 const { routes, ApiError } = require('./lib/api');
 const auth = require('./lib/auth');
@@ -39,6 +39,7 @@ const seeded = seedIfEmpty();
 const activity = seedDemoActivity();
 const brokerAcct = ensureBrokerAccount();
 const settleDefaults = ensureSettlementDefaults();
+const insurancePanel = ensureInsurancePanel();
 
 /* ---------------- static ---------------- */
 
@@ -488,6 +489,7 @@ server.listen(PORT, HOST, () => {
   if (activity.seeded) line(`seeded ${activity.applications} sample applications, ${activity.leads} leads`);
   if (brokerAcct.added) line(`added the demo broker account ${brokerAcct.email}`);
   if (settleDefaults.added) line(`added ${settleDefaults.added} settlement settings — set the real ones in Admin → Dealership`);
+  if (insurancePanel.added) line(`added ${insurancePanel.added} demo insurers — replace them in Admin → Insurers`);
   line(`database   ${DB_PATH}`);
   line(`storefront http://localhost:${PORT}/`);
   line(`admin      http://localhost:${PORT}/admin`);

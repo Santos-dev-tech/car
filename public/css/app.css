@@ -2366,3 +2366,23 @@ img { decoding: async; }
 .bring { display: grid; gap: 2px; margin-top: var(--space-8); }
 .bring-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .bring-row:last-child { border-bottom: 0; }
+
+/* Insurance quotes: four prices for the same car, side by side.
+   The cheapest is marked rather than merely first, because a column of prices
+   reads as a list and a list is something people scroll past. */
+.quotes { display: grid; gap: 2px; }
+.quote {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-2);
+  padding: var(--space-16);
+}
+.quote.is-best { border-left-color: var(--ok); background: var(--card-2); }
+.ticks { margin: 10px 0 0; padding-left: 0; list-style: none; }
+.ticks li {
+  position: relative;
+  padding-left: 18px;
+  font-size: .86rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.ticks li::before { content: '✓'; position: absolute; left: 0; color: var(--ok); }

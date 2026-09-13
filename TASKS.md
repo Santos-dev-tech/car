@@ -237,6 +237,44 @@ and `· the yard releases the car` sections of `tools/smoke.js` (47 assertions o
 
 ---
 
+## G. Insurance: from an estimate to a sale
+
+`lib/ownership.js` estimates what cover costs so a buyer can budget. This places the policy.
+The app is standing at the exact moment a financed buyer is legally obliged to insure — the
+handover gate will not release the car without cover — holding the vehicle value, the
+buyer's details and the lender's requirement. And it renews every year afterwards.
+
+Proof: `tools/insurance-test.js` (56 assertions, no server).
+
+- [x] **G1 A real panel, not an average** — four insurers, each with their own rate, minimum
+      premium, age loading, no-claims ladder, excess and appetite. They disagree on purpose;
+      a panel where everyone quotes the same has no reason to exist.
+- [x] **G2 Priced from the insurer's own row** — never from a global assumption.
+- [x] **G3 The spread is shown** — "the dearest quote here is KES 47,500 more than the
+      cheapest" is the argument for comparing at all.
+- [x] **G4 An insurer may refuse** — too old, too cheap, too dear, or not writing. The
+      refusal and the reason are shown rather than the insurer quietly vanishing.
+- [x] **G5 Commission is capped at 10% by law** — the Eleventh Schedule of the Insurance
+      Regulations. Clamped in the engine, not in the form, and a capped row says so.
+- [x] **G6 The customer never sees the commission** — stripped from every public quote. A
+      price with a commission printed beside it invites the obvious question.
+- [x] **G7 The app never touches premium** — section 156(2): 20% of the unremitted premium
+      and a criminal offence for a director. There is no premium payment route and the
+      `policies` table has no column for one.
+- [x] **G8 Accepting a quote creates a request, not a policy** — the insurer decides, the
+      yard records the cover note. The same rule as the balance: never confirm on the
+      customer's word what only a third party can confirm.
+- [x] **G9 Confirming the cover note clears the handover block** — one action, one place, so
+      the policy record and the deal gate can never disagree.
+- [x] **G10 Renewals are the business** — a list of who to ring and when, urgent first,
+      lapsed rows kept on it rather than dropped, with the commission at stake totalled.
+- [x] **G11 A renewal carries the introducer forward** — a broker who put the customer on the
+      books is owed on the renewal too. That is the difference between a commission and a tip.
+- [x] **G12 Slot terms are recorded** — monthly fee, exclusivity and the date it was promised
+      until, because a slot sold is a slot promised.
+
+---
+
 ## Deliberately not built
 
 - **A blog / CMS.** The nav in the reference video had one. It is a content system, not a
