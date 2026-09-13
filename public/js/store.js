@@ -1455,9 +1455,9 @@
     $('#fKm').oninput = (e) => deb({ maxMileage: e.target.value });
     $('#fMonthly').oninput = (e) => deb({ maxMonthly: e.target.value });
     // Enter searches immediately instead of waiting out the debounce
-    $('#fq').onkeydown = (e) => {
+    $('#fq').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') applyFilters({ q: e.target.value });
-    };
+    });
 
     on($('#pager'), 'click', '[data-page]', (e, el) => {
       currentPage = Number(el.dataset.page);
@@ -2723,7 +2723,9 @@
        from a DOM0 handler cancels the event — so the shortcut silently swallowed every
        keystroke, including Backspace. Typing into the field did nothing at all and it read
        as a broken input rather than a broken handler. */
-    $('#bkPhone').onkeydown = (e) => { if (e.key === 'Enter') run(); };
+    /* addEventListener, not element.onkeydown — see the note on the sign-in form in
+       admin.js. A DOM0 handler returning false cancels the keystroke. */
+    $('#bkPhone').addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
   }
 
   /**
@@ -2810,7 +2812,7 @@
       $('#tGo').onclick = load;
       ['tRef', 'tPhone'].forEach((id) => {
         const el = $('#' + id);
-        if (el) el.onkeydown = (e) => { if (e.key === 'Enter') load(); };
+        if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') load(); });
       });
     };
 

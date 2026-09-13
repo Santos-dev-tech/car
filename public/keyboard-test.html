@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keyboard test</title>
+<!--
+  A deliberately bare page for one question: does typing work at all?
+
+  It loads NO stylesheet and NO application javascript. If a key appears here but not in
+  the app, the app is at fault. If nothing appears here either, the problem is outside
+  the app entirely - the browser, an extension, or the keyboard - and no amount of
+  changing the app will fix it.
+
+  It exists because the agent's own browser automation stopped delivering keystrokes,
+  which made every "I tested it and it works" claim worthless. This puts a human at a
+  real keyboard in the loop instead.
+-->
+<style>
+  body { font: 16px system-ui, sans-serif; margin: 0; padding: 32px; background: #fff; color: #111; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  p { color: #555; max-width: 60ch; }
+  input { font-size: 22px; padding: 12px; width: min(420px, 100%); margin-top: 8px;
+          border: 2px solid #888; background: #fff; color: #000; }
+  .box { border: 1px solid #ddd; padding: 18px; margin-top: 22px; }
+  code { background: #f2f2f2; padding: 2px 5px; }
+  #log { font-family: ui-monospace, Consolas, monospace; font-size: 13px; white-space: pre-wrap;
+         background: #f7f7f7; padding: 12px; margin-top: 10px; min-height: 5em; }
+  .big { font-size: 1.1rem; font-weight: 700; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>Keyboard test</h1>
+<p>No stylesheet, no app code. Click the box and type a few characters.</p>
+
+<div class="box">
+  <label for="a"><b>1. A completely plain box</b></label><br>
+  <input id="a" placeholder="type here">
+  <div class="big" id="r1">nothing typed yet</div>
+</div>
+
+<div class="box">
+  <label for="b"><b>2. The same kind of box the broker page uses</b></label><br>
+  <input type="tel" id="b" inputmode="tel" placeholder="0712 345 678" autocomplete="off">
+  <div class="big" id="r2">nothing typed yet</div>
+</div>
+
+<div class="box">
+  <b>3. What the browser is actually receiving</b>
+  <div id="log">click a box above and press a key…</div>
+</div>
+
+<script>
+  var log = document.getElementById('log');
+  var lines = [];
+  function note(s) {
+    lines.push(s);
+    if (lines.length > 12) lines.shift();
+    log.textContent = lines.join('\n');
+  }
+  ['a', 'b'].forEach(function (id, n) {
+    var el = document.getElementById(id);
+    var out = document.getElementById('r' + (n + 1));
+    el.addEventListener('input', function () {
+      out.textContent = el.value ? 'TYPING WORKS — value is "' + el.value + '"' : 'empty';
+    });
+    el.addEventListener('keydown', function (e) {
+      note('keydown  ' + e.key + (e.defaultPrevented ? '   <-- CANCELLED' : ''));
+    });
+    el.addEventListener('beforeinput', function (e) { note('beforeinput  ' + e.data); });
+  });
+</script>
+
+</body>
+</html>

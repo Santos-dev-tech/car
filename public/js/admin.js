@@ -119,8 +119,14 @@
        from a DOM0 handler cancels the event — so the shortcut silently swallowed every
        keystroke, including Backspace. Typing into the field did nothing at all and it read
        as a broken input rather than a broken handler. */
-    $('#p').onkeydown = (e) => { if (e.key === 'Enter') submit(); };
-    $('#e').onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+    /* addEventListener, not element.onkeydown. A DOM0 handler that returns false
+       CANCELS the event, and the obvious shorthand for an Enter shortcut —
+       `(e) => e.key === 'Enter' && fn()` — returns false for every other key. That
+       silently swallowed every keystroke here, including Backspace, and was reported
+       as "I cannot delete the email and password from the boxes". A listener added
+       this way cannot cancel anything by accident, whatever it returns. */
+    $('#p').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    $('#e').addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
 
     on(view, 'click', '[data-demo]', (ev, el) => {
       const [email, password] = el.dataset.demo.split('|');
@@ -168,7 +174,7 @@
       }
     };
     $('#otpGo').onclick = go2;
-    $('#otp').onkeydown = (e) => { if (e.key === 'Enter') go2(); };
+    $('#otp').addEventListener('keydown', (e) => { if (e.key === 'Enter') go2(); });
     $('#otp').oninput = (e) => {
       e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
       if (e.target.value.length === 6) go2();
