@@ -2687,7 +2687,7 @@
       <div class="card mt" style="max-width:520px">
         <div class="field">
           <label for="bkPhone">Their phone number</label>
-          <input id="bkPhone" inputmode="tel" placeholder="0712 345 678" autocomplete="off">
+          <input type="tel" id="bkPhone" inputmode="tel" placeholder="0712 345 678" autocomplete="off">
         </div>
         <button class="btn primary block lg mt" id="bkGo">Check</button>
       </div>

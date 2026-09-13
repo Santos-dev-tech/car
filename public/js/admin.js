@@ -1041,8 +1041,8 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
 
       <div class="card mt">
         <div class="grid-3">
-          <div class="field"><label for="ckName">Client name</label><input id="ckName" placeholder="James Mwangi"></div>
-          <div class="field"><label for="ckPhone">Phone</label><input id="ckPhone" placeholder="0733 445 566" inputmode="tel"></div>
+          <div class="field"><label for="ckName">Client name</label><input type="text" id="ckName" placeholder="James Mwangi"></div>
+          <div class="field"><label for="ckPhone">Phone</label><input type="tel" id="ckPhone" placeholder="0733 445 566" inputmode="tel"></div>
           <div class="field"><label for="ckAge">Age</label><input id="ckAge" type="number" value="34"></div>
         </div>
         <div class="grid-3 mt">
@@ -1400,9 +1400,9 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
           introduction — not the car. If you show them a Prado and they buy a Harrier, you
           are still credited.</p>
         <div class="grid-3 mt">
-          <div class="field"><label for="bcName">Name</label><input id="bcName" placeholder="John Omondi"></div>
-          <div class="field"><label for="bcPhone">Phone</label><input id="bcPhone" placeholder="0712 345 678" inputmode="tel"></div>
-          <div class="field"><label for="bcNote">What they are after (optional)</label><input id="bcNote" placeholder="Prado or similar, up to 7M"></div>
+          <div class="field"><label for="bcName">Name</label><input type="text" id="bcName" placeholder="John Omondi"></div>
+          <div class="field"><label for="bcPhone">Phone</label><input type="tel" id="bcPhone" placeholder="0712 345 678" inputmode="tel"></div>
+          <div class="field"><label for="bcNote">What they are after (optional)</label><input type="text" id="bcNote" placeholder="Prado or similar, up to 7M"></div>
         </div>
         <button class="btn primary mt" id="bcSave">Register and protect</button>
         <div id="bcMsg" class="mt"></div>
@@ -1518,9 +1518,9 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
               <p class="muted" style="font-size:.86rem">Stored encrypted. A dealership sees
                 that you are verified — never your ID number.</p>
               <div class="grid-3 mt">
-                <div class="field"><label for="bvId">ID number</label><input id="bvId" inputmode="numeric"></div>
-                <div class="field"><label for="bvKra">KRA PIN</label><input id="bvKra" placeholder="A000000000X"></div>
-                <div class="field"><label for="bvAddr">Physical address</label><input id="bvAddr" placeholder="Ngong Road, Nairobi"></div>
+                <div class="field"><label for="bvId">ID number</label><input type="text" id="bvId" inputmode="numeric"></div>
+                <div class="field"><label for="bvKra">KRA PIN</label><input type="text" id="bvKra" placeholder="A000000000X"></div>
+                <div class="field"><label for="bvAddr">Physical address</label><input type="text" id="bvAddr" placeholder="Ngong Road, Nairobi"></div>
               </div>
               <button class="btn primary mt" id="bvSave">Submit</button>
               <div id="bvMsg" class="mt"></div>

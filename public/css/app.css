@@ -314,8 +314,11 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.2rem 0; }
   display: block; font-size: .74rem; font-weight: 650; text-transform: uppercase;
   letter-spacing: .07em; color: var(--muted); margin-bottom: 6px;
 }
-input[type=text], input[type=number], input[type=email], input[type=password], input[type=tel],
-input[type=date], select, textarea {
+/* Same exclusion rule as the block further down — see the note there. A typeless
+   <input> has to pick up the base sizing too, or it is merely invisible in a
+   differently shaped box. */
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=submit]):not([type=button]),
+select, textarea {
   width: 100%; padding: 10px 12px; border-radius: 10px;
   border: 1px solid var(--line); background: var(--bg-2); color: var(--text); outline: none;
   transition: .14s;
@@ -1083,8 +1086,17 @@ select optgroup {
 .wrap { max-width: var(--page-max); padding: 0 var(--space-40); }
 
 /* ---------- 7. forms ---------- */
-input[type=text], input[type=number], input[type=email], input[type=password],
-input[type=tel], input[type=date], select, textarea {
+/* Matched by EXCLUSION, not by listing every type.
+   This was previously a list of input[type=...] selectors, which silently misses two
+   things: any type nobody thought of, and — the one that actually bit — an input written
+   with no type attribute at all. `input[type=text]` does not match `<input>`; the
+   attribute has to be physically present. Nine fields across the broker screens ended up
+   unstyled, taking the browser's white box and inheriting near-white body text, so people
+   typed into them and saw nothing at all. It looked for all the world like the field was
+   refusing input.
+   Checkboxes, radios and ranges are the only ones that genuinely want their own look. */
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=submit]):not([type=button]),
+select, textarea {
   border: 1px solid var(--line);
   padding: var(--space-16);
   font-family: var(--font-body);
