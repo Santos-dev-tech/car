@@ -2601,6 +2601,59 @@
     $('#bkPhone').onkeydown = (e) => e.key === 'Enter' && run();
   }
 
+  /**
+   * The logbook half of the tracker.
+   *
+   * Paying for a car does not make it yours; the logbook changing does. Until then the
+   * dealership is still the registered owner, and the buyer — who has the keys and has
+   * paid — owns nothing. Nobody tells them this, so they ring the yard every morning.
+   *
+   * The part that earns its place is "YOUR MOVE". NTSA's transfer needs the BUYER to
+   * approve it on eCitizen, and most buyers have no idea, so they wait for a logbook that
+   * is waiting for them. Days pass for no reason at all. When it is their turn this says
+   * so, loudly, with the steps.
+   */
+  function trackLogbook(t) {
+    if (!t) return '';
+    const mine = t.waitingOn === 'Buyer';
+    return `
+      <div class="card mt" style="border-left:4px solid var(--${t.done ? 'ok' : mine ? 'warn' : 'line-2'})">
+        <div class="lbl" style="margin:0">Your logbook</div>
+        <div class="row between wrap-r">
+          <div>
+            <div style="font-size:1.2rem;font-weight:700">${esc(t.label)}</div>
+            <div class="muted" style="font-size:.9rem;max-width:52ch">${esc(t.blurb)}</div>
+          </div>
+          <div class="dim" style="font-size:.82rem">Step ${t.step} of ${t.total}</div>
+        </div>
+
+        ${
+          mine
+            ? `<div class="form-note warn mt"><span>!</span><div>
+                 <b>Your move.</b> Sign in to eCitizen, open NTSA TIMS, and look in your
+                 notifications for the transfer request. Check the registration, chassis
+                 and engine numbers match the car, then approve it.
+                 <div class="dim mt" style="font-size:.8rem">Nothing moves until you do this.
+                   The digital logbook appears about three working days afterwards.</div>
+               </div></div>`
+            : t.done
+              ? ''
+              : `<p class="muted mt" style="font-size:.9rem">Waiting on
+                   <b>${esc(t.waitingOn || 'NTSA')}</b>. Nothing for you to do right now.</p>`
+        }
+
+        ${
+          t.slow && !mine
+            ? `<div class="form-note err mt"><span>!</span><div>This has taken longer than
+                 NTSA usually needs. Give us a ring and we will chase it.</div></div>`
+            : ''
+        }
+
+        <p class="dim mt" style="font-size:.78rem">Until this finishes, the car is still
+          registered to the dealership. Transfer fee ${KES(t.cost.total)} — ${esc(t.cost.basis)}</p>
+      </div>`;
+  }
+
   function pageTrack(query) {
     const savedRef = query.ref || store.get('lastRef', '');
     const savedPhone = query.phone || store.get('lastPhone', '');
@@ -2651,6 +2704,7 @@
         out.innerHTML = `
           ${trackNow(r, phone)}
           ${TRACK_ENDED[r.status] ? '' : trackRail(r.status)}
+          ${trackLogbook(r.transfer)}
 
           <div class="split-r mt">
             <div>
