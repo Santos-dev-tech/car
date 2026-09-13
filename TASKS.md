@@ -148,6 +148,49 @@ All 20 are asserted by `tools/audit.js`, which exits non-zero if any regress.
 
 ---
 
+## E. The broker
+
+A broker's whole business is the introduction, and his whole fear is doing the work and
+watching somebody else collect. Everything here answers one of two sentences you hear in
+every yard in Nairobi: *"the bank's agent took my customer"* and *"I showed him a Prado
+and he bought a Harrier"*.
+
+Proof: `tools/broker-test.js` (102 assertions, no server) and the `· role permissions`
+section of `tools/smoke.js` (22 of its assertions are the broker over HTTP).
+
+- [x] **E1 The phone number is the claim** — not a cookie. A cookie cannot survive a Kenyan
+      buyer browsing on a friend's handset, arriving through WhatsApp's in-app browser and
+      coming back on a laptop. `key()` folds `07…`, `254…` and `+254…` into one shape.
+- [x] **E2 First touch wins** — enforced by a unique index, not by a branch somebody can
+      forget. The second broker to register a number is refused, and is not told who holds
+      it: naming them turns a private ledger into a list of other people's clients.
+- [x] **E3 An expired claim releases the number** — 90 days. The first version refused on the
+      mere existence of a row, which locked a customer away from every broker for ever.
+- [x] **E4 The car does not matter** — the claim is on the person, so the Harrier pays the
+      same as the Prado would have.
+- [x] **E5 The client can confirm it** — one tap, and a commission dispute stops being
+      he-said-she-said.
+- [x] **E6 A broker sees only his own book** — scoped in the SQL, never filtered afterwards.
+      Both suites attack this directly, from a second broker and from a sales agent.
+- [x] **E7 Verification is computed, never set** — `unregistered → pending → id_checked →
+      verified`, worked out from evidence on every call. There is no column to flip and no
+      export that flips one, and it is never asked whether anyone has paid.
+- [x] **E8 Suspension beats everything** — and a suspended broker cannot take on new clients,
+      though claims he held before it stand.
+- [x] **E9 The badge is platform-wide, the claim is not** — funded deals and references count
+      from every yard; a claim belongs to one dealership's customer.
+- [x] **E10 He never sees the dealer's position** — no stock ageing, no carrying cost, no
+      applications board, no staff list, no audit log. The dealer converts the carrying cost
+      into an offer instead ("paying extra"), so the broker sees the money and not the reason.
+- [x] **E11 No identity documents** — an introduction does not entitle anyone to read the
+      client's ID number, KRA PIN or payslips. Applications come back masked, and the smoke
+      suite greps the whole response to prove it.
+- [x] **E12 His own client history** — every affordability check he has run, and a lookup by
+      phone number for the moment a client rings back six weeks later. Without it the tool is
+      a calculator you use once and forget rather than a book of clients.
+
+---
+
 ## Deliberately not built
 
 - **A blog / CMS.** The nav in the reference video had one. It is a content system, not a

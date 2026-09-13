@@ -40,6 +40,7 @@ Requires Node 22.5+. On this machine Node is portable at
 | Dealer admin | `grace@summitmotors.demo` | `demo123` | this dealership |
 | Sales agent | `brian@summitmotors.demo` | `demo123` | stock, applications, leads |
 | Finance officer | `faith@summitmotors.demo` | `demo123` | the above, plus lender rules |
+| Broker | `peter@broker.demo` | `demo123` | his own clients and checks, none of the yard's screens |
 | Customer | `customer@motoke.demo` | `demo123` | storefront account |
 
 Staff sign-in asks for a **6-digit one-time code** after the password. There is no SMS

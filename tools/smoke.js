@@ -828,6 +828,58 @@ const PDF_DATA_URL =
     ok('but still cannot rewrite a bank\'s published rates',
       (await api('POST', '/api/admin/lenders', { name: 'Fake Bank' })).status === 403, boss.user.role);
 
+    /* THE BROKER.
+       Everything above this point is staff of one yard. A broker is not: he has no
+       dealer_id, he walks into four yards in a week, and the only thing keeping him out of
+       the dealer's private position is the permission list. The unit tests prove the
+       attribution logic; these prove the SERVER enforces it over HTTP, which is the part
+       an attacker actually touches. */
+    const broker = await asRole('peter@broker.demo', 'demo123');
+    ok('the broker signs in', broker.user && broker.user.role === 'broker', broker.user);
+    ok('and belongs to no single yard', broker.user.dealer_id == null, broker.user.dealer_id);
+
+    const reg = await api('POST', '/api/admin/broker/clients', {
+      name: 'Smoke Test Client', phone: '0799 111 222', note: 'Prado or similar',
+    });
+    ok('he can register a client', reg.status === 200 && reg.json.ok, reg.json);
+    ok('and is told how long it protects him', reg.json.holdsForDays === 90, reg.json.holdsForDays);
+
+    const book = await api('GET', '/api/admin/broker/book');
+    ok('his book opens', book.status === 200);
+    ok('and the client he just registered is in it',
+      (book.json.clients || []).some((c) => c.phone === '+254799111222'), book.json.clients);
+    ok('the book carries the checks he has run', Array.isArray(book.json.checks), book.json.checks);
+
+    const hist = await api('GET', '/api/admin/broker/history?phone=0799111222');
+    ok('he can look a client up by number', hist.status === 200, hist.json);
+    ok('the number comes back normalised', hist.json.phone === '+254799111222', hist.json.phone);
+    ok('with the claim attached', hist.json.claim && hist.json.claim.name === 'Smoke Test Client', hist.json.claim);
+    ok('and no identity documents anywhere in it',
+      !/idNumber|kraPin|"dob"/.test(JSON.stringify(hist.json)), JSON.stringify(hist.json).slice(0, 200));
+
+    const strangerHist = await api('GET', '/api/admin/broker/history?phone=0700000999');
+    ok('a number he has never touched comes back empty rather than refused',
+      strangerHist.status === 200 && strangerHist.json.checks.length === 0 &&
+      strangerHist.json.claim === null, strangerHist.json);
+    ok('and a lookup with no number is rejected',
+      (await api('GET', '/api/admin/broker/history?phone=')).status === 400);
+
+    /* The dealer's carrying cost is the dealer's private position. A broker who could see
+       how much a car is bleeding would be negotiating against the man paying for this. */
+    ok('a broker cannot open stock ageing', (await api('GET', '/api/admin/ageing')).status === 403);
+    ok('nor the business overview', (await api('GET', '/api/admin/stats')).status === 403);
+    ok('nor every application in the yard', (await api('GET', '/api/admin/applications')).status === 403);
+    ok('nor the leads board', (await api('GET', '/api/admin/leads')).status === 403);
+    ok('nor the staff list', (await api('GET', '/api/admin/users')).status === 403);
+    ok('nor the activity log', (await api('GET', '/api/admin/audit')).status === 403);
+    ok('and cannot reprice a car', (await api('PATCH', `/api/admin/vehicles/${bookable.id}`, { price: 1 })).status === 403);
+
+    /* And the other direction: a sales agent is not a broker either, so he cannot read a
+       broker's book of clients. */
+    await asRole('brian@summitmotors.demo', 'demo123');
+    ok('a sales agent cannot open a broker\'s book', (await api('GET', '/api/admin/broker/book')).status === 403);
+    ok('nor look a broker\'s client up', (await api('GET', '/api/admin/broker/history?phone=0799111222')).status === 403);
+
     /* Assignment is a management act. Working a file and deciding who works it are two
        different jobs, and a caseworker quietly moving files onto a colleague is how
        accountability for a customer's money disappears. */

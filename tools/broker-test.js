@@ -143,6 +143,63 @@ ok('Peter sees only his own registered clients',
 ok('a broker with no clients gets an empty book, not everyone\'s',
   brk.bookFor(dealerId, 99999).applications.length === 0);
 
+/* A broker runs ten checks a month and remembers none of them. Six weeks later the client
+   rings back and he is asking the same questions again, which reads to the client as a man
+   who was not paying attention the first time. The answers were saved all along. */
+console.log('\n— the checks he already ran —');
+const mkCheck = (broker, phone, name, price, dep, best, approved) =>
+  insert('prequalifications', {
+    ref: 'Q' + Math.random().toString(36).slice(2, 8).toUpperCase(),
+    dealer_id: dealerId, introduced_by: broker, name, phone,
+    applicant: '{"netIncome":95000}',
+    target_price: price, deposit: dep, tenor_months: 48,
+    approved_count: approved, best_monthly: best,
+  });
+
+mkCheck(mary, '+254722000111', 'Grace Njeri', 4_750_000, 950_000, 92_400, 3);
+mkCheck(mary, '+254722000111', 'Grace Njeri', 3_200_000, 640_000, 61_800, 4);
+mkCheck(peter, '+254712345678', 'John Omondi', 8_900_000, 1_780_000, 171_000, 1);
+
+ok('Mary sees the two checks she ran', brk.bookFor(dealerId, mary).checks.length === 2);
+ok('Peter sees only his own one', brk.bookFor(dealerId, peter).checks.length === 1);
+ok('and none of hers',
+  brk.bookFor(dealerId, peter).checks.every((c) => c.phone !== '+254722000111'));
+
+console.log('\n— looking one client up by number —');
+const grace = brk.historyFor(dealerId, mary, '0722 000 111');
+ok('the number is normalised before anything is matched', grace.phone === '+254722000111');
+ok('her claim comes back', grace.claim && grace.claim.name === 'Grace Njeri', grace.claim);
+ok('both of the checks he ran for her come back', grace.checks.length === 2, grace.checks.length);
+ok('the newest is first', grace.checks[0].created_at >= grace.checks[1].created_at);
+ok('the car she actually bought is attached',
+  grace.applications.length === 0 || /Harrier/.test(grace.applications[0].vehicle_snapshot));
+ok('a number nobody has touched is empty, not an error',
+  brk.historyFor(dealerId, mary, '0799 000 000').checks.length === 0);
+ok('rubbish in gives null rather than everybody\'s book',
+  brk.historyFor(dealerId, mary, '') === null);
+
+/* The important one. A broker who can type a phone number into a box must not be able to
+   read the man next door's book by guessing at numbers. */
+ok('Peter looking up MARY\'s client sees nothing of hers',
+  (() => {
+    const h = brk.historyFor(dealerId, peter, '0722000111');
+    return h.claim === null && h.checks.length === 0 && h.applications.length === 0;
+  })());
+ok('and Mary looking up PETER\'s client sees nothing of his',
+  (() => {
+    const h = brk.historyFor(dealerId, mary, '0712345678');
+    return h.claim === null && h.checks.length === 0;
+  })());
+ok('a check run at another yard does not appear here',
+  (() => {
+    insert('prequalifications', {
+      ref: 'QOTHER1', dealer_id: otherDealer, introduced_by: mary,
+      name: 'Grace Njeri', phone: '+254722000111', applicant: '{}',
+      target_price: 1, deposit: 0, tenor_months: 12, approved_count: 0,
+    });
+    return brk.historyFor(dealerId, mary, '0722000111').checks.length === 2;
+  })());
+
 console.log('\n— what is owed, and what is only hoped for —');
 const e = brk.earningsFor(dealerId, peter, 4000);
 ok('only funded deals count', e.fundedCount === 1, e);

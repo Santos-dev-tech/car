@@ -101,15 +101,16 @@ node --no-warnings tools/performance-test.js  # 71  the spec sheet, no server
 node --no-warnings tools/firebase-test.js     # 32  ID token verification, no server
 node --no-warnings tools/valuation-test.js    # 62  price indicator + depreciation, no server
 node --no-warnings tools/inventory-test.js    # 63  stock ageing + repricing, no server
-node --no-warnings tools/smoke.js 4000        # 263 the whole API, needs the server up
+node --no-warnings tools/broker-test.js       # 102 attribution + verification, no server
+node --no-warnings tools/smoke.js 4000        # 284 the whole API, needs the server up
 ```
 
-**639 assertions. All eight pass.** Each exits with its failure count, so any of them can
+**762 assertions. All nine pass.** Each exits with its failure count, so any of them can
 gate a deploy. `audit.js` is the one that matters before anything goes public — it greps
 for committed secrets, refuses third-party imports, and asserts the named security controls
 and front-end invariants are still in place.
 
-Run all eight after any change to `lib/`. Run `audit.js` after any change to `public/`.
+Run all nine after any change to `lib/`. Run `audit.js` after any change to `public/`.
 
 **Restart the server between smoke runs.** The login limiter and the booking limiter are
 in-memory, and a second run against the same process trips them — the suite then fails on

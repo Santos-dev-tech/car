@@ -1419,6 +1419,42 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
         <div id="bcMsg" class="mt"></div>
       </div>
 
+      <div class="card mt">
+        <div class="lbl">Look someone up</div>
+        <p class="muted" style="font-size:.86rem">A client rings back six weeks later. Put
+          their number in and you get back what you already worked out for them, instead of
+          starting again.</p>
+        <div class="row wrap-r" style="gap:10px;align-items:flex-end">
+          <div class="field" style="flex:1;min-width:200px">
+            <label for="bhPhone">Their phone number</label>
+            <input type="tel" id="bhPhone" placeholder="0712 345 678" inputmode="tel" autocomplete="off">
+          </div>
+          <button class="btn" id="bhGo">Look up</button>
+        </div>
+        <div id="bhOut" class="mt"></div>
+      </div>
+
+      <h3 class="mt-lg">Checks you have run (${(b.checks || []).length})</h3>
+      ${
+        (b.checks || []).length
+          ? `<div class="scroll-x"><table class="tbl">
+              <thead><tr><th>Client</th><th>Phone</th><th class="num">Car</th><th class="num">Deposit</th><th class="num">Best monthly</th><th>Lenders</th><th class="num">When</th></tr></thead>
+              <tbody>${b.checks
+                .map(
+                  (c) => `<tr>
+                    <td><b>${esc(c.name || '—')}</b></td>
+                    <td>${esc(c.phone || '—')}</td>
+                    <td class="num">${c.targetPrice ? KES(c.targetPrice) : '—'}</td>
+                    <td class="num">${c.deposit ? KES(c.deposit) : '—'}</td>
+                    <td class="num">${c.bestMonthly ? KES(c.bestMonthly) : '<span class="dim">none</span>'}</td>
+                    <td><span class="tag ${c.approvedCount ? 'ok' : 'warn'}">${c.approvedCount || 0} said yes</span></td>
+                    <td class="num dim">${dateFmt(c.createdAt)}</td>
+                  </tr>`
+                )
+                .join('')}</tbody></table></div>`
+          : '<div class="empty">No checks yet. Every client you run through <b>Check a client</b> is saved here, so you never have to ask them the same questions twice.</div>'
+      }
+
       <h3 class="mt-lg">Registered (${b.clients.length})</h3>
       ${
         b.clients.length
@@ -1459,6 +1495,83 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
                payslips and bank statements are not shown to introducers.</p>`
           : '<div class="empty">Nothing yet. An application appears here the moment one of your registered clients applies.</div>'
       }`;
+
+    const lookup = async () => {
+      const btn = $('#bhGo');
+      const out = $('#bhOut');
+      btn.disabled = true;
+      out.innerHTML = '<div class="spinner"></div>';
+      try {
+        const h = await GET('/api/admin/broker/history?phone=' + encodeURIComponent($('#bhPhone').value));
+        out.innerHTML = renderHistory(h);
+      } catch (err) {
+        out.innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(err.message)}</div></div>`;
+      }
+      btn.disabled = false;
+    };
+    $('#bhGo').onclick = lookup;
+    /* addEventListener, not onkeydown. A DOM0 handler whose body is an expression returns
+       false for every key that is not Enter, and returning false CANCELS the keystroke -
+       which is what made these boxes look like they refused to type. */
+    $('#bhPhone').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') lookup();
+    });
+
+    function renderHistory(h) {
+      const nothing = !h.claim && !h.checks.length && !h.leads.length && !h.applications.length;
+      if (nothing) {
+        return `<div class="empty">Nothing on ${esc(h.phone)} in your book. If somebody else
+          registered them first you will not see it here either - that is deliberate.</div>`;
+      }
+      const claim = h.claim
+        ? `<div class="form-note ${h.claim.expired ? 'warn' : 'ok'}">
+             <span>${h.claim.expired ? '!' : '✓'}</span>
+             <div><b>${esc(h.claim.name)}</b> is registered to you${h.claim.note ? ' — ' + esc(h.claim.note) : ''}.
+               ${h.claim.expired ? 'Your claim has run out. Register them again to protect it.' : 'Protected until ' + dateFmt(h.claim.expires) + '.'}
+               ${h.claim.confirmed ? ' Confirmed by the client.' : ''}</div></div>`
+        : `<div class="form-note warn"><span>!</span><div>${esc(h.phone)} is not registered to
+             you. If you are about to introduce them, register them first.</div></div>`;
+
+      const checks = h.checks.length
+        ? `<div class="lbl mt">What you worked out before</div>
+           <div class="scroll-x"><table class="tbl">
+             <thead><tr><th class="num">Car</th><th class="num">Deposit</th><th class="num">Over</th><th class="num">Best monthly</th><th>Lenders</th><th class="num">When</th></tr></thead>
+             <tbody>${h.checks
+               .map(
+                 (c) => `<tr>
+                   <td class="num">${c.targetPrice ? KES(c.targetPrice) : '—'}</td>
+                   <td class="num">${c.deposit ? KES(c.deposit) : '—'}</td>
+                   <td class="num">${c.tenorMonths || '—'} mo</td>
+                   <td class="num">${c.bestMonthly ? KES(c.bestMonthly) : '<span class="dim">none</span>'}</td>
+                   <td><span class="tag ${c.approvedCount ? 'ok' : 'warn'}">${c.approvedCount || 0}</span></td>
+                   <td class="num dim">${dateFmt(c.createdAt)}</td>
+                 </tr>`
+               )
+               .join('')}</tbody></table></div>`
+        : '';
+
+      const apps = h.applications.length
+        ? `<div class="lbl mt">Applications</div>
+           <div class="scroll-x"><table class="tbl">
+             <thead><tr><th>Ref</th><th>Car</th><th class="num">Price</th><th>Stage</th></tr></thead>
+             <tbody>${h.applications
+               .map(
+                 (a) => `<tr>
+                   <td><code>${esc(a.ref)}</code></td>
+                   <td>${esc(a.vehicle || '—')}</td>
+                   <td class="num">${KES(a.price || 0)}</td>
+                   <td><span class="tag ${STATUS_TONE[a.status] || ''}">${esc(titleCase(a.status))}</span></td>
+                 </tr>`
+               )
+               .join('')}</tbody></table></div>`
+        : '';
+
+      const leads = h.leads.length
+        ? `<p class="dim mt" style="font-size:.84rem">${h.leads.length} enquiry${h.leads.length === 1 ? '' : ' records'} on this number, the oldest ${dateFmt(h.leads[h.leads.length - 1].createdAt)}.</p>`
+        : '';
+
+      return claim + checks + apps + leads;
+    }
 
     $('#bcSave').onclick = async () => {
       const btn = $('#bcSave');

@@ -23,7 +23,7 @@ if (argFlag('reset')) {
   console.log('· database reset');
 }
 
-const { seedIfEmpty } = require('./lib/seed');
+const { seedIfEmpty, ensureBrokerAccount } = require('./lib/seed');
 const { seedDemoActivity } = require('./lib/demo');
 const { routes, ApiError } = require('./lib/api');
 const auth = require('./lib/auth');
@@ -37,6 +37,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const seeded = seedIfEmpty();
 const activity = seedDemoActivity();
+const brokerAcct = ensureBrokerAccount();
 
 /* ---------------- static ---------------- */
 
@@ -484,12 +485,14 @@ server.listen(PORT, HOST, () => {
   console.log('  ' + '-'.repeat(58));
   if (seeded.seeded) line(`seeded ${seeded.dealers} dealerships, ${seeded.lenders} lenders, ${seeded.vehicles} vehicles`);
   if (activity.seeded) line(`seeded ${activity.applications} sample applications, ${activity.leads} leads`);
+  if (brokerAcct.added) line(`added the demo broker account ${brokerAcct.email}`);
   line(`database   ${DB_PATH}`);
   line(`storefront http://localhost:${PORT}/`);
   line(`admin      http://localhost:${PORT}/admin`);
   console.log('  ' + '-'.repeat(58));
   line('admin@motoke.demo / admin123        (platform admin — sees all 5 dealers)');
   line('grace@summitmotors.demo / demo123   (dealer admin — Summit Motors only)');
+  line('peter@broker.demo / demo123          (broker — his own clients, no yard screens)');
   line('customer@motoke.demo / demo123      (customer account)');
   console.log('');
 });
