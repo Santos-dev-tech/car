@@ -1071,6 +1071,33 @@ const PDF_DATA_URL =
     ok('the platform admin still reaches everything', (await api('GET', '/api/admin/audit')).status === 200);
   }
 
+  console.log('\n· http is only forced up to https from the public internet');
+  {
+    /* fetch() refuses to set a Host header, so these go out on node:http directly.
+       The behaviour under test is real: a phone on the office Wi-Fi reaches this machine
+       at 192.168.x.x, and forcing it to https on an address that has no certificate means
+       the site simply does not load. Private ranges are not routable from the internet, so
+       skipping the redirect there downgrades nothing - and a public host must still get it. */
+    const rawGet = (hostHeader) => new Promise((resolve) => {
+      const req = require('node:http').request(
+        { host: '127.0.0.1', port: PORT, path: '/api/bootstrap', method: 'GET', headers: { Host: hostHeader } },
+        (res) => { res.resume(); resolve({ status: res.statusCode, location: res.headers.location || '' }); }
+      );
+      req.on('error', () => resolve({ status: 0, location: '' }));
+      req.end();
+    });
+
+    ok('localhost is served over http', (await rawGet('localhost:' + PORT)).status === 200);
+    ok('a home Wi-Fi address is too', (await rawGet('192.168.0.123:' + PORT)).status === 200);
+    ok('and a 10.x office network', (await rawGet('10.1.2.3:' + PORT)).status === 200);
+    ok('and the 172.16-31 block', (await rawGet('172.20.1.9:' + PORT)).status === 200);
+    ok('but 172.15 is NOT private and is redirected', (await rawGet('172.15.1.9:' + PORT)).status === 308);
+
+    const pub = await rawGet('motoke.example.com');
+    ok('a public hostname is still forced to https', pub.status === 308, pub);
+    ok('and sent to the same host over https', /^https:\/\/motoke\.example\.com/.test(pub.location), pub.location);
+  }
+
   console.log('\n· multi-tenant isolation');
   cookie = '';
   const dealerStart = await api('POST', '/api/auth/login', { email: 'grace@summitmotors.demo', password: 'demo123' });
