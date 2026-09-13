@@ -23,6 +23,7 @@
     ['Stock ageing', 'ageing', '⏳', 'ageing'],
     ['Leads', 'leads', '☎', 'leads'],
     ['Introducers', 'brokers', '🤝', 'applications'],
+    ['Handovers', 'deals', '🔑', 'applications'],
     ['Logbooks', 'transfers', '📗', 'applications'],
     /* A broker holds only `broker`, `inventory` and `prequal`. Everything above Inventory
        vanishes for them, and what is left is these four plus the stock and the calculator. */
@@ -1408,6 +1409,156 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
 
   const CLAIM_TONE = (daysLeft) => (daysLeft > 30 ? 'ok' : daysLeft > 0 ? 'warn' : 'err');
 
+  /**
+   * Every deal between "the bank said yes" and "here are the keys".
+   *
+   * The applications board answers where the FINANCE is. This answers whether the customer
+   * can actually drive away, which is a different question and the one that fills the day:
+   * has he signed, did the money land, is the car insured, when is he coming.
+   *
+   * Sorted by what somebody here can do about it, not by age. A car that could go out today
+   * and a deal past NTSA's deadline both belong at the top; a deal sitting with a bank does
+   * not, however old it is.
+   */
+  async function pageDeals() {
+    view.innerHTML = '<div class="spinner"></div>';
+    const r = await GET('/api/admin/deals');
+    const items = r.items || [];
+    const ready = items.filter((d) => d.canRelease);
+    const late = items.filter((d) => d.transferDaysLeft != null && d.transferDaysLeft <= 0);
+    const ours = items.filter((d) => d.waitingOn === 'Dealership');
+
+    view.innerHTML = `
+      <div class="row between wrap-r">
+        <div><h2>Handovers</h2>
+          <p class="muted" style="margin-top:-6px">Everything still in flight, ordered by what
+            you can actually do about it today.</p></div>
+      </div>
+
+      <div class="kpis mt">
+        <div class="kpi"><div class="k">Could go out today</div><div class="v">${ready.length}</div>
+          <div class="d">Signed, paid and insured</div></div>
+        <div class="kpi"><div class="k">Waiting on you</div><div class="v">${ours.length}</div>
+          <div class="d">Your move, not the customer's</div></div>
+        <div class="kpi"><div class="k">Past NTSA's 14 days</div><div class="v">${late.length}</div>
+          <div class="d">${late.length ? 'The buyer is driving a car registered to someone else' : 'None overdue'}</div></div>
+      </div>
+
+      ${
+        items.length
+          ? `<div class="scroll-x mt"><table class="tbl">
+              <thead><tr><th>Ref</th><th>Client</th><th>Car</th><th>Waiting on</th><th>Next</th><th class="num">Done</th><th></th></tr></thead>
+              <tbody>${items.map((d) => `
+                <tr>
+                  <td><code>${esc(d.ref)}</code></td>
+                  <td>${esc(d.client || '—')}<div class="dim" style="font-size:.8rem">${esc(d.phone || '')}</div></td>
+                  <td>${esc(d.vehicle || '—')}</td>
+                  <td><span class="tag ${d.waitingOn === 'Dealership' ? 'warn' : ''}">${esc(d.waitingOn || '—')}</span></td>
+                  <td class="dim">${esc((d.next || {}).label || '—')}
+                    ${d.transferDaysLeft != null && d.transferDaysLeft <= 0 ? '<span class="tag err">transfer overdue</span>' : ''}</td>
+                  <td class="num">${d.doneCount}/${d.total}</td>
+                  <td><button class="btn sm ${d.canRelease ? 'primary' : ''}" data-deal-open="${d.id}">${d.canRelease ? 'Release' : 'Open'}</button></td>
+                </tr>`).join('')}</tbody></table></div>`
+          : '<div class="empty">Nothing in flight. Every sale is either finished or has not started.</div>'
+      }
+      <div id="dealDrawer"></div>`;
+
+    $$('[data-deal-open]').forEach((b) => {
+      b.onclick = () => openDeal(Number(b.getAttribute('data-deal-open')));
+    });
+  }
+
+  /** One deal, with the four things the yard confirms. */
+  async function openDeal(id) {
+    const a = await GET(`/api/admin/applications/${id}`);
+    const st = a.deal || null;
+    const body = `
+      <div class="row between wrap-r">
+        <div><div class="lbl">Handover</div><h3 style="margin:0"><code>${esc(a.ref)}</code></h3>
+          <div class="dim">${esc((a.vehicle_snapshot && a.vehicle_snapshot.title) || '')}</div></div>
+        <span class="tag ${st && st.canRelease ? 'ok' : 'warn'}">${st && st.canRelease ? 'Clear to release' : 'Not clear'}</span>
+      </div>
+
+      ${
+        st
+          ? `<div class="deal-steps mt">${st.steps.map((x) => `
+              <div class="deal-step ${x.done ? 'is-done' : ''}">
+                <div class="deal-tick">${x.done ? '✓' : '○'}</div>
+                <div class="grow"><div class="row between"><b>${esc(x.label)}</b>
+                  <span class="tag ${x.done ? 'ok' : ''}">${esc(x.who)}</span></div>
+                  <div class="dim" style="font-size:.86rem">${esc(x.detail)}</div></div>
+              </div>`).join('')}</div>`
+          : ''
+      }
+
+      <hr>
+      <div class="grid-2">
+        <div>
+          <div class="lbl">Countersign</div>
+          <p class="muted" style="font-size:.84rem">Only after the buyer has. The app refuses
+            if the terms changed since they signed.</p>
+          <button class="btn" id="dgSign">Countersign the agreement</button>
+        </div>
+        <div>
+          <div class="lbl">Money received</div>
+          <div class="grid-2">
+            <div class="field"><label for="dgAmt">Amount</label><input type="number" id="dgAmt" inputmode="numeric" value="${st ? st.balanceOutstanding : 0}"></div>
+            <div class="field"><label for="dgRef">Reference</label><input type="text" id="dgRef" value="${esc(a.balance_ref || '')}"></div>
+          </div>
+          <div class="field"><label for="dgMethod">How</label>
+            <select id="dgMethod">
+              <option value="pesalink">PesaLink</option><option value="bank_transfer">Bank transfer</option>
+              <option value="rtgs">RTGS</option><option value="mpesa">M-Pesa</option>
+              <option value="cheque">Banker's cheque</option><option value="cash">Cash</option>
+            </select></div>
+          <button class="btn" id="dgPaid">Confirm received</button>
+        </div>
+      </div>
+
+      <hr>
+      <div class="lbl">Insurance seen</div>
+      <p class="muted" style="font-size:.84rem">Type what is on the certificate in front of you.
+        The law will not let this car leave without cover, and neither will this screen.</p>
+      <div class="grid-3">
+        <div class="field"><label for="dgIns">Insurer</label><input type="text" id="dgIns" value="${esc(a.insurer || '')}"></div>
+        <div class="field"><label for="dgPol">Policy / cover note</label><input type="text" id="dgPol" value="${esc(a.insurance_policy || '')}"></div>
+        <div class="field"><label for="dgExp">Runs to</label><input type="date" id="dgExp" value="${esc((a.insurance_expiry || '').slice(0, 10))}"></div>
+      </div>
+      <button class="btn mt" id="dgInsGo">Confirm the cover</button>
+
+      <hr>
+      <div class="lbl">Hand the car over</div>
+      <div class="field"><label for="dgNote">What went with it</label><input type="text" id="dgNote" placeholder="Two keys, spare, jack, wheel spanner"></div>
+      <button class="btn primary block lg mt" id="dgHand">Release the car</button>
+      <div id="dgMsg" class="mt"></div>`;
+
+    const m = modal('Handover', body, { wide: true });
+
+    const run = async (btn, fn) => {
+      const b = $('#' + btn);
+      b.disabled = true;
+      $('#dgMsg').innerHTML = '';
+      try {
+        await fn();
+        toast('Done', 'ok');
+        m.close();
+        render();
+      } catch (e) {
+        $('#dgMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        b.disabled = false;
+      }
+    };
+
+    $('#dgSign').onclick = () => run('dgSign', () => POST(`/api/admin/applications/${id}/countersign`, {}));
+    $('#dgPaid').onclick = () => run('dgPaid', () => POST(`/api/admin/applications/${id}/balance`, {
+      amount: Number($('#dgAmt').value) || 0, method: $('#dgMethod').value, reference: $('#dgRef').value,
+    }));
+    $('#dgInsGo').onclick = () => run('dgInsGo', () => POST(`/api/admin/applications/${id}/insurance`, {
+      insurer: $('#dgIns').value, policy: $('#dgPol').value, expiry: $('#dgExp').value,
+    }));
+    $('#dgHand').onclick = () => run('dgHand', () => POST(`/api/admin/applications/${id}/handover`, { note: $('#dgNote').value }));
+  }
+
   async function pageBrokerClients() {
     view.innerHTML = '<div class="spinner"></div>';
     const b = await GET('/api/admin/broker/book');
@@ -2430,6 +2581,8 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
           return await pageAgeing();
         case 'brokers':
           return await pageIntroducers();
+        case 'deals':
+          return await pageDeals();
         case 'transfers':
           return await pageTransfers();
         case 'check':

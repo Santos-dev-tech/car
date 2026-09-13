@@ -770,6 +770,140 @@ const PDF_DATA_URL =
     ok('and it does not leak why', !/project|token|verify/i.test(JSON.stringify(off.json).toLowerCase().replace('firebase sign-in is not enabled on this server', '')), off.json);
   }
 
+  /* The application created above, carried through to the end of its life: signed, paid,
+     insured, collected, and its logbook transfer started. */
+  const dealRef = ref;
+  const dealPhone = '0700000000';
+  const dealName = 'Smoke Test';
+  const dealId = track.json.id;
+
+  console.log('\n· the rest of the deal');
+  {
+    /* Everything between "the bank said yes" and "here are the keys". The unit tests prove
+       the arithmetic and the gate; these prove the SERVER enforces both over HTTP, and that
+       a reference on its own gets a stranger nowhere.
+
+       Runs signed OUT, as a buyer would. cookie is cleared and restored around it. */
+    const keep = cookie;
+    cookie = '';
+
+
+    const app = await api('GET', `/api/applications/track?ref=${dealRef}&phone=${dealPhone}`);
+    ok('the deal reference still tracks', app.status === 200, app.json);
+
+    const d = (await api('GET', `/api/deal?ref=${dealRef}&phone=${dealPhone}`)).json;
+    ok('the buyer can see everything outstanding', Array.isArray(d.steps) && d.steps.length === 10, d.steps && d.steps.length);
+    ok('and is told whose move it is', !!d.waitingOn, d.waitingOn);
+    ok('a car nobody has paid for cannot be released', d.canRelease === false, d.blockers);
+
+    ok('a stranger with the reference gets nothing',
+      (await api('GET', `/api/deal?ref=${dealRef}&phone=0799999999`)).status === 403);
+    ok('and neither does one with no phone number at all',
+      (await api('GET', `/api/deal?ref=${dealRef}`)).status === 403);
+
+    /* WHERE THE MONEY GOES. Published in the app so a buyer has one authoritative source
+       instead of account details arriving on WhatsApp, which is how people get robbed. */
+    ok('the account details are published', d.settlement && d.settlement.configured === true, d.settlement);
+    ok('the reference to quote is the deal\'s own', d.settlement.reference === dealRef);
+    ok('and it warns that these never change by message', /fraud/i.test(d.settlement.warning || ''));
+
+    /* THE AGREEMENT. */
+    const ag = (await api('GET', `/api/deal/agreement?ref=${dealRef}&phone=${dealPhone}`)).json;
+    ok('the buyer can read the agreement before signing', !!ag.title && ag.clauses.length > 0);
+    ok('it carries a hash of the exact wording', !!ag.hash && ag.shortHash.length === 12, ag.shortHash);
+    ok('it names the NTSA fourteen-day window', ag.clauses.some((c) => /fourteen days/.test(c)), ag.clauses);
+
+    ok('signing with no code is refused',
+      (await api('POST', '/api/deal/sign', { ref: dealRef, phone: dealPhone, name: 'X', code: '123456', agreed: true })).status === 400);
+
+    const start = await api('POST', '/api/deal/sign/start', { ref: dealRef, phone: dealPhone });
+    ok('a code can be requested', start.status === 200 && !!start.json.demoCode, start.json);
+    ok('and it goes to the phone ON THE APPLICATION, masked', /•/.test(start.json.sentTo || ''), start.json.sentTo);
+
+    const code = start.json.demoCode;
+    ok('a wrong code is refused',
+      (await api('POST', '/api/deal/sign', { ref: dealRef, phone: dealPhone, name: dealName, code: '000000', agreed: true })).status === 400);
+    ok('signing in somebody else\'s name is refused',
+      (await api('POST', '/api/deal/sign', { ref: dealRef, phone: dealPhone, name: 'Someone Entirely Else', code, agreed: true })).status === 400);
+    ok('and so is signing without ticking the box',
+      (await api('POST', '/api/deal/sign', { ref: dealRef, phone: dealPhone, name: dealName, code, agreed: false })).status === 400);
+
+    const signed = await api('POST', '/api/deal/sign', { ref: dealRef, phone: dealPhone, name: dealName, code, agreed: true });
+    ok('the right name with the right code signs it', signed.status === 200, signed.json);
+    ok('and the step is now done',
+      signed.json.deal.steps.find((x) => x.key === 'agreement_buyer').done === true);
+    ok('the same code cannot be used twice',
+      (await api('POST', '/api/deal/sign', { ref: dealRef, phone: dealPhone, name: dealName, code, agreed: true })).status === 400);
+
+    const after = (await api('GET', `/api/deal/agreement?ref=${dealRef}&phone=${dealPhone}`)).json;
+    ok('the signature appears on the document', after.signed.length === 1 && after.signed[0].party === 'buyer', after.signed);
+    ok('the hash did NOT change by being signed', after.hash === ag.hash, [ag.shortHash, after.shortHash]);
+
+    /* COLLECTION. */
+    const soon = new Date(Date.now() + 5 * 864e5).toISOString().slice(0, 10);
+    ok('a date in the past is refused',
+      (await api('POST', '/api/deal/collection', { ref: dealRef, phone: dealPhone, date: '2020-01-01', time: '10:00' })).status === 400);
+    const booked = await api('POST', '/api/deal/collection', { ref: dealRef, phone: dealPhone, date: soon, time: '11:00' });
+    ok('a time can be booked', booked.status === 200, booked.json);
+
+    const bring = (await api('GET', `/api/deal/collection-list?ref=${dealRef}&phone=${dealPhone}`)).json;
+    ok('the list of what to bring is worked out from this deal', bring.items.length >= 3, bring.items);
+    ok('and the legal one is marked as legal', bring.items.some((i) => i.legal && /nsurance/.test(i.item)), bring.items);
+
+    /* INSURANCE, declared by the buyer but NOT confirmed by them. */
+    const ins = await api('POST', '/api/deal/insurance', { ref: dealRef, phone: dealPhone, insurer: 'Demo Assurance', policy: 'CN/2026/0001' });
+    ok('the buyer can give their cover details', ins.status === 200);
+    const stillBlocked = (await api('GET', `/api/deal?ref=${dealRef}&phone=${dealPhone}`)).json;
+    ok('but declaring it does not make the car releasable', stillBlocked.canRelease === false, stillBlocked.blockers);
+    ok('because the yard has not confirmed it', stillBlocked.blockers.some((b) => /insured/.test(b)), stillBlocked.blockers);
+
+    cookie = keep;
+  }
+
+  console.log('\n· the yard releases the car');
+  {
+    /* Signed in as the platform admin from the block above. */
+    ok('the handovers board opens', (await api('GET', '/api/admin/deals')).status === 200);
+    const board = (await api('GET', '/api/admin/deals')).json.items;
+    ok('and this deal is on it', board.some((b) => b.ref === dealRef), board.length);
+    ok('nothing on the board carries an ID number', !/idNumber|kraPin/.test(JSON.stringify(board)));
+
+    ok('releasing a car that is not paid for is refused',
+      (await api('POST', `/api/admin/applications/${dealId}/handover`, {})).status === 409);
+
+    const cs = await api('POST', `/api/admin/applications/${dealId}/countersign`, {});
+    ok('the yard can countersign once the buyer has', cs.status === 200, cs.json);
+    ok('but not twice', (await api('POST', `/api/admin/applications/${dealId}/countersign`, {})).status === 400);
+
+    const owed = cs.json.deal.balanceOutstanding;
+    const paid = await api('POST', `/api/admin/applications/${dealId}/balance`, { amount: owed, method: 'pesalink', reference: 'SMOKE-PL-1' });
+    ok('money seen in the account is confirmed by the yard', paid.status === 200, paid.json);
+    ok('and the balance clears', paid.json.deal.balanceOutstanding === 0, paid.json.deal.balanceOutstanding);
+
+    ok('still cannot release it, because of the insurance',
+      (await api('POST', `/api/admin/applications/${dealId}/handover`, {})).status === 409);
+
+    const conf = await api('POST', `/api/admin/applications/${dealId}/insurance`, { insurer: 'Demo Assurance', policy: 'CN/2026/0001', expiry: '2027-12-31' });
+    ok('the yard confirms the cover it has seen', conf.status === 200, conf.json);
+    ok('and now the car is clear to go', conf.json.deal.canRelease === true, conf.json.deal.blockers);
+
+    const hand = await api('POST', `/api/admin/applications/${dealId}/handover`, { note: 'Two keys and the spare.' });
+    ok('the car is handed over', hand.status === 200, hand.json);
+    ok('NTSA\'s fourteen days start now',
+      hand.json.deal.steps.find((x) => x.key === 'transfer').daysLeft === 14,
+      hand.json.deal.steps.find((x) => x.key === 'transfer'));
+    ok('and it cannot be handed over twice',
+      (await api('POST', `/api/admin/applications/${dealId}/handover`, {})).status === 400);
+
+    /* The signing code's hash is an HMAC of six digits. Anyone holding it can recover the
+       code offline and sign in the buyer's name, so it must never leave the server. */
+    const detail = (await api('GET', `/api/admin/applications/${dealId}`)).json;
+    ok('the signing code never reaches the console', detail.sign_otp_hash === undefined, Object.keys(detail).filter((k) => /otp/.test(k)));
+    ok('but the deal state does', !!detail.deal && detail.deal.steps.length === 10);
+    ok('and the signatures, without the address they came from',
+      detail.signatures.length === 2 && detail.signatures.every((x) => x.ip === undefined), detail.signatures);
+  }
+
   console.log('\n· role permissions');
   {
     /* Hiding a menu item is decoration. These check the SERVER refuses, which is the

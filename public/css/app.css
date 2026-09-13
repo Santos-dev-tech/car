@@ -2310,3 +2310,59 @@ img { decoding: async; }
   .sc-flags { left: 14px; top: 14px; }
   .sc-count { display: none; }
 }
+
+/* ------------------------------------------------------------------
+   The rest of the deal: the checklist on the tracker, the agreement the
+   buyer signs, and what to bring on collection day.
+
+   Every colour here is a token. The one thing this must not do is invent a
+   literal - the theme is only as deep as its tokens, and a hard-coded grey
+   reads as a bug the first time somebody switches theme.
+   ------------------------------------------------------------------ */
+.deal-steps { display: grid; gap: 2px; }
+.deal-step {
+  display: flex;
+  gap: var(--space-16);
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.deal-step:last-child { border-bottom: 0; }
+.deal-step .grow { flex: 1; min-width: 0; }
+.deal-tick {
+  width: 26px; height: 26px; flex: 0 0 26px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line-2);
+  color: var(--dim);
+  font-size: 13px;
+}
+.deal-step.is-done .deal-tick { border-color: var(--ok); color: var(--ok); }
+.deal-step.is-done > .grow > .row > b { color: var(--muted); }
+.deal-step.is-blocked { opacity: .72; }
+
+/* the agreement, set to read like a document rather than like an app */
+.agreement {
+  border: 1px solid var(--line);
+  padding: var(--space-24);
+  margin-top: var(--space-16);
+  max-height: 52vh;
+  overflow-y: auto;
+  background: var(--card-2);
+}
+.agreement .specgroups { margin-top: var(--space-8); }
+.clauses { margin: var(--space-8) 0 0; padding-left: 18px; }
+.clauses li { margin-bottom: 10px; font-size: .9rem; color: var(--muted); }
+
+/* a two-column key/value row, used by the agreement and the payment details */
+.specrow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-16);
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.specrow > span { color: var(--dim); font-size: var(--text-label); }
+.specrow > b { text-align: right; }
+
+.bring { display: grid; gap: 2px; margin-top: var(--space-8); }
+.bring-row { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.bring-row:last-child { border-bottom: 0; }

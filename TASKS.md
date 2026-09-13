@@ -191,6 +191,52 @@ section of `tools/smoke.js` (22 of its assertions are the broker over HTTP).
 
 ---
 
+## F. Everything between the finance and the keys
+
+The brief was blunt: *"everything can be done in the app from the moment the client
+calculates to when they go for the car — you only see the client when they come for it."*
+Four things stood in the way, and all four used to happen on WhatsApp or in the yard.
+
+Proof: `tools/deal-test.js` (52 assertions, no server) and the `· the rest of the deal`
+and `· the yard releases the car` sections of `tools/smoke.js` (47 assertions over HTTP).
+
+- [x] **F1 One list of what is outstanding** — ten steps, who is waiting on each, and the
+      same answer for the buyer and the yard. The application status says where the money
+      is; this says whether the customer can drive away, which is a different question.
+- [x] **F2 Sign in the app** — the buyer reads the agreement and signs with a code sent to
+      the phone already on the application, never to a number supplied in the request. The
+      yard countersigns afterwards, never before.
+- [x] **F3 The signature is tied to the exact wording** — a SHA-256 of the terms. If a
+      price changes after the buyer signed, the countersignature is refused and says so.
+      The hash covers the terms only: not the date, not the signature block, because a
+      hash invalidated by being used is a deadlock rather than a check.
+- [x] **F4 Honest about what an e-signature is here** — Kenyan law reserves full
+      equivalence to certificated *advanced* electronic signatures. This is a simple one
+      with an audit trail. The app says so on the screen where it matters.
+- [x] **F5 Paying the balance, on the right rail** — M-Pesa stops at KES 250,000 a
+      transaction and 500,000 a day, PesaLink at 999,999, and above a million it is RTGS.
+      The app works out which one carries this particular balance and says why.
+- [x] **F6 The account details are published in the app** — with the deal's own reference
+      to quote, and a plain warning that they never change by message. Account details
+      arriving on WhatsApp is how Kenyan car buyers get robbed.
+- [x] **F7 The buyer declares, the yard confirms** — money and insurance are recorded from
+      the buyer's side and confirmed from the yard's. A car is never released on the
+      payer's own word.
+- [x] **F8 Insurance is a hard gate** — a car cannot be driven on a Kenyan road without at
+      least third-party cover (Cap 405), so the handover is refused without it. Not a
+      warning. A 409.
+- [x] **F9 Book the one visit** — with a list of what to bring worked out from this deal
+      rather than a generic one, so nobody is turned away at the gate after taking a day off.
+- [x] **F10 NTSA's fourteen days start at handover** — counted down on both screens, and
+      overdue deals sort to the top of the yard's board.
+- [x] **F11 The board is ordered by what somebody can do today** — past a legal deadline
+      first, then cars that could go out now, then the yard's own move. Not by age.
+- [x] **F12 The signing code never leaves the server** — it is an HMAC of six digits and
+      whoever recovers it can sign in the buyer's name. Stripped from every shaped
+      application, asserted over HTTP.
+
+---
+
 ## Deliberately not built
 
 - **A blog / CMS.** The nav in the reference video had one. It is a content system, not a

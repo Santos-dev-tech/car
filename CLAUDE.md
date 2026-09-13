@@ -102,15 +102,16 @@ node --no-warnings tools/firebase-test.js     # 32  ID token verification, no se
 node --no-warnings tools/valuation-test.js    # 62  price indicator + depreciation, no server
 node --no-warnings tools/inventory-test.js    # 63  stock ageing + repricing, no server
 node --no-warnings tools/broker-test.js       # 102 attribution + verification, no server
-node --no-warnings tools/smoke.js 4000        # 286 the whole API, needs the server up
+node --no-warnings tools/deal-test.js         # 52  signing, balance, insurance, handover, no server
+node --no-warnings tools/smoke.js 4000        # 333 the whole API, needs the server up
 ```
 
-**764 assertions. All nine pass.** Each exits with its failure count, so any of them can
+**863 assertions. All ten pass.** Each exits with its failure count, so any of them can
 gate a deploy. `audit.js` is the one that matters before anything goes public — it greps
 for committed secrets, refuses third-party imports, and asserts the named security controls
 and front-end invariants are still in place.
 
-Run all nine after any change to `lib/`. Run `audit.js` after any change to `public/`.
+Run all ten after any change to `lib/`. Run `audit.js` after any change to `public/`.
 
 **Restart the server between smoke runs.** The login limiter and the booking limiter are
 in-memory, and a second run against the same process trips them — the suite then fails on
@@ -170,6 +171,7 @@ lib/market.js      Kenyan reference data: economy, resale, servicing, import dut
 lib/performance.js the enthusiast spec sheet: power, 0-100, wheels, the condition scorecard
 lib/security.js    validation, rate limiting, encryption, OTP, uploads, headers
 lib/commerce.js    booking deposits, payment providers, offer letters
+lib/deal.js        what is left between the finance and the keys, and who is waiting
 lib/jobs.js        the self-refreshing fuel price schedule
 lib/seed.js        demo dealerships, lenders, stock, staff
 lib/demo.js        sample pipeline so the console is not empty on first run
@@ -237,6 +239,18 @@ honours it, and only admin tooling calls it that way.
 **Any new endpoint that looks a record up by reference must check `dealer_id` against
 `siteDealer()`.** The tracker, offer letter, booking status and document upload all shipped
 without that check and leaked across dealerships until it was added.
+
+### The handover gate is a gate, not a reminder
+
+`lib/deal.js` refuses to release a car that is unsigned, unpaid or uninsured, and
+`/api/admin/applications/:id/handover` returns 409 rather than a warning. Two of those are
+Kenyan law — third-party cover under Cap 405 before a car moves, and NTSA's fourteen days
+from purchase to lodge the transfer. **Do not add an override.** A checklist anybody can
+wave through is decoration, and the yard that waves it through is the one carrying the
+liability.
+
+The same file is also the only place that works out what the buyer owes. A deposit written
+into an offer is not money: only a paid `orders` row or a confirmed `balance_paid` counts.
 
 ### Encrypted columns need decrypting on read
 

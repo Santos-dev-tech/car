@@ -2781,6 +2781,321 @@
       </div>`;
   }
 
+  /* ------------------------------------------------------------------
+     Everything between "the bank said yes" and "here are the keys".
+
+     This used to happen on WhatsApp and in the yard: sign here, did you send the money,
+     are you insured, when are you coming. Four questions, four phone calls, and at least
+     one wasted trip. They are all answerable from a sofa, so they are answered here.
+
+     The buyer has no account. Every call below carries the reference and the phone number
+     on the application, which is the same rule the tracker itself uses.
+     ------------------------------------------------------------------ */
+
+  const WHO_TONE = { Buyer: 'warn', Dealership: '', Lender: '', NTSA: '' };
+
+  async function loadDeal(ref, phone) {
+    const out = $('#dealOut');
+    if (!out) return;
+    out.innerHTML = '<div class="card"><div class="spinner"></div></div>';
+    let d;
+    try {
+      d = await GET(`/api/deal?ref=${encodeURIComponent(ref)}&phone=${encodeURIComponent(phone)}`);
+    } catch (e) {
+      out.innerHTML = '';
+      return;
+    }
+    out.innerHTML = dealPanel(d);
+    wireDeal(d, ref, phone);
+  }
+
+  function dealPanel(d) {
+    const left = d.total - d.doneCount;
+    return `
+      <div class="card mt">
+        <div class="row between wrap-r">
+          <div>
+            <div class="lbl" style="margin:0">Everything left to do</div>
+            <h3 style="margin:2px 0 0">${left === 0 ? 'Nothing. This deal is finished.' : left + (left === 1 ? ' thing left' : ' things left')}</h3>
+            ${d.next ? `<p class="muted" style="margin:4px 0 0">Next: <b>${esc(d.next.label)}</b> — ${esc(d.next.who === 'Buyer' ? 'your move' : 'with ' + d.next.who.toLowerCase())}.</p>` : ''}
+          </div>
+          <span class="tag ${d.doneCount === d.total ? 'ok' : ''}">${d.doneCount} of ${d.total}</span>
+        </div>
+
+        <div class="deal-steps mt">
+          ${d.steps.map((st) => `
+            <div class="deal-step ${st.done ? 'is-done' : ''} ${st.blocked ? 'is-blocked' : ''}">
+              <div class="deal-tick">${st.done ? '✓' : st.blocked ? '·' : '○'}</div>
+              <div class="grow">
+                <div class="row between">
+                  <b>${esc(st.label)}</b>
+                  <span class="tag ${st.done ? 'ok' : WHO_TONE[st.who] || ''}">${esc(st.who)}</span>
+                </div>
+                <div class="dim" style="font-size:.86rem">${esc(st.detail)}</div>
+                ${st.legal && !st.done ? '<div class="dim" style="font-size:.78rem;margin-top:3px">This one is the law, not our rule.</div>' : ''}
+                ${!st.done && !st.blocked && st.action ? `<button class="btn sm mt" data-deal="${esc(st.action)}">${esc(ACTION_LABEL[st.action] || 'Do this')}</button>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div id="dealAction"></div>`;
+  }
+
+  const ACTION_LABEL = {
+    upload: 'Send documents',
+    sign: 'Read and sign',
+    'pay-balance': 'How to pay',
+    insurance: 'Add my insurance',
+    'book-collection': 'Pick a time',
+  };
+
+  function wireDeal(d, ref, phone) {
+    $$('[data-deal]').forEach((b) => {
+      b.onclick = () => openDealAction(b.getAttribute('data-deal'), d, ref, phone);
+    });
+  }
+
+  async function openDealAction(action, d, ref, phone) {
+    const box = $('#dealAction');
+    const back = () => loadDeal(ref, phone);
+    if (action === 'upload') { location.hash = `#/upload?ref=${encodeURIComponent(ref)}&phone=${encodeURIComponent(phone)}`; return; }
+    box.innerHTML = '<div class="card mt"><div class="spinner"></div></div>';
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    if (action === 'sign') return dealSign(box, ref, phone, back);
+    if (action === 'pay-balance') return dealPay(box, d, ref, phone, back);
+    if (action === 'insurance') return dealInsurance(box, ref, phone, back);
+    if (action === 'book-collection') return dealCollection(box, ref, phone, back);
+  }
+
+  /* ---- sign ---- */
+  async function dealSign(box, ref, phone, back) {
+    let a;
+    try { a = await GET(`/api/deal/agreement?ref=${encodeURIComponent(ref)}&phone=${encodeURIComponent(phone)}`); }
+    catch (e) { box.innerHTML = `<div class="card mt err-text">${esc(e.message)}</div>`; return; }
+
+    box.innerHTML = `
+      <div class="card mt">
+        <div class="lbl">${esc(a.title)}</div>
+        <p class="muted" style="font-size:.86rem">Read it. This is the document NTSA needs
+          before the logbook can be transferred into your name.</p>
+
+        <div class="agreement">
+          <div class="grid-2">
+            <div><div class="lbl">Seller</div>${esc(a.seller.name)}<br><span class="dim">${esc(a.seller.address)}</span></div>
+            <div><div class="lbl">Buyer</div>${esc(a.buyer.name)}<br><span class="dim">ID ${esc(a.buyer.idNumber)} · KRA ${esc(a.buyer.kraPin)}</span></div>
+          </div>
+          <div class="lbl mt">The car</div>
+          <div class="specgroups"><div class="specgroup">${a.identity.map(([k, v]) => `<div class="specrow"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div></div>
+          <div class="lbl mt">The money</div>
+          <div class="specgroups"><div class="specgroup">${a.terms.map(([k, v]) => `<div class="specrow"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div></div>
+          <div class="lbl mt">Terms</div>
+          <ol class="clauses">${a.clauses.map((c) => `<li>${esc(c)}</li>`).join('')}</ol>
+          <p class="dim" style="font-size:.76rem">Document ${esc(a.shortHash)}. That code identifies this exact
+            wording — if any term changes, it changes too, and a signature made now will no longer match.</p>
+        </div>
+
+        <hr>
+        <div id="signStep">
+          <p class="muted">We will send a 6-digit code to the phone number on this application.</p>
+          <button class="btn primary" id="signStart">Send me the code</button>
+        </div>
+        <div id="signMsg" class="mt"></div>
+        <p class="dim mt" style="font-size:.78rem">Signing here is a record of your agreement,
+          kept with the time, the code we sent you and the wording above. Kenyan law reserves
+          full equivalence to a wet signature for certificated "advanced" e-signatures, which
+          this is not — so the yard may still ask you to sign a printed copy on collection.
+          Either way, nobody has to make a trip just to sign.</p>
+      </div>`;
+
+    $('#signStart').onclick = async () => {
+      const btn = $('#signStart');
+      btn.disabled = true;
+      try {
+        const r = await POST('/api/deal/sign/start', { ref, phone });
+        $('#signStep').innerHTML = `
+          <div class="form-note ok"><span>✓</span><div>Code sent to ${esc(r.sentTo)}. It lasts ${r.expiresInMinutes} minutes.</div></div>
+          ${r.demoCode ? `<div class="form-note mt"><span>⚙</span><div>Demo mode, no SMS gateway: the code is <b>${esc(r.demoCode)}</b>.</div></div>` : ''}
+          <div class="grid-2 mt">
+            <div class="field"><label for="sgName">Type your full name</label><input type="text" id="sgName" autocomplete="name"></div>
+            <div class="field"><label for="sgCode">The 6-digit code</label><input type="tel" id="sgCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></div>
+          </div>
+          <label class="check mt"><input type="checkbox" id="sgAgree"> <span>I have read the agreement above and I agree to it.</span></label>
+          <button class="btn primary block lg mt" id="sgGo">Sign the agreement</button>`;
+        $('#sgGo').onclick = doSign;
+        $('#sgCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSign(); });
+      } catch (e) {
+        $('#signMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        btn.disabled = false;
+      }
+    };
+
+    async function doSign() {
+      const btn = $('#sgGo');
+      btn.disabled = true;
+      $('#signMsg').innerHTML = '';
+      try {
+        await POST('/api/deal/sign', {
+          ref, phone,
+          name: $('#sgName').value,
+          code: $('#sgCode').value,
+          agreed: $('#sgAgree').checked,
+        });
+        toast('Signed. The dealership has been notified.', 'ok');
+        box.innerHTML = '';
+        back();
+      } catch (e) {
+        $('#signMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        btn.disabled = false;
+      }
+    }
+  }
+
+  /* ---- pay the balance ---- */
+  function dealPay(box, d, ref, phone, back) {
+    const set = d.settlement || {};
+    const owed = d.balanceOutstanding;
+    box.innerHTML = `
+      <div class="card mt">
+        <div class="lbl">Paying the balance</div>
+        <div style="font-size:1.6rem;font-weight:700">${KES(owed)}</div>
+        <div class="form-note mt"><span>i</span><div><b>${esc((d.rail || {}).label || '')}</b> — ${esc((d.rail || {}).why || '')}</div></div>
+
+        ${
+          set.configured
+            ? `<div class="specgroups mt"><div class="specgroup">
+                 <div class="specrow"><span>Bank</span><b>${esc(set.bank)}</b></div>
+                 <div class="specrow"><span>Account name</span><b>${esc(set.accountName)}</b></div>
+                 <div class="specrow"><span>Account number</span><b class="mono">${esc(set.accountNumber)}</b></div>
+                 ${set.branch ? `<div class="specrow"><span>Branch</span><b>${esc(set.branch)}</b></div>` : ''}
+                 ${set.paybill ? `<div class="specrow"><span>M-Pesa paybill</span><b class="mono">${esc(set.paybill)}</b></div>` : ''}
+                 <div class="specrow"><span>Reference to quote</span><b class="mono">${esc(set.reference)}</b></div>
+               </div></div>
+               <div class="form-note warn mt"><span>!</span><div>${esc(set.warning)}</div></div>`
+            : `<div class="form-note warn mt"><span>!</span><div>${esc(set.note || '')}</div></div>`
+        }
+
+        <hr>
+        <div class="lbl">Already sent it?</div>
+        <p class="muted" style="font-size:.86rem">Tell us the reference so the yard can find it.
+          This does not confirm the payment — they confirm it when they see it in the account.</p>
+        <div class="grid-3">
+          <div class="field"><label for="pbAmt">How much you sent</label><input type="number" id="pbAmt" value="${owed}" inputmode="numeric"></div>
+          <div class="field"><label for="pbMethod">How</label>
+            <select id="pbMethod">
+              <option value="pesalink">PesaLink</option>
+              <option value="bank_transfer">Bank transfer</option>
+              <option value="rtgs">RTGS</option>
+              <option value="mpesa">M-Pesa</option>
+              <option value="cheque">Banker's cheque</option>
+            </select></div>
+          <div class="field"><label for="pbRef">Transaction reference</label><input type="text" id="pbRef" placeholder="e.g. QJ72K4L9PA"></div>
+        </div>
+        <button class="btn primary mt" id="pbGo">Tell the dealership</button>
+        <div id="pbMsg" class="mt"></div>
+        <p class="dim mt" style="font-size:.78rem">You can also attach the slip under
+          <b>Send a document</b>. The yard matches the reference against the account either way.</p>
+      </div>`;
+
+    $('#pbGo').onclick = async () => {
+      const btn = $('#pbGo');
+      btn.disabled = true;
+      try {
+        const r = await POST('/api/deal/balance', {
+          ref, phone,
+          amount: Number($('#pbAmt').value) || 0,
+          method: $('#pbMethod').value,
+          reference: $('#pbRef').value,
+        });
+        $('#pbMsg').innerHTML = `<div class="form-note ok"><span>✓</span><div>${esc(r.note)}</div></div>`;
+        back();
+      } catch (e) {
+        $('#pbMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        btn.disabled = false;
+      }
+    };
+  }
+
+  /* ---- insurance ---- */
+  function dealInsurance(box, ref, phone, back) {
+    box.innerHTML = `
+      <div class="card mt">
+        <div class="lbl">Your insurance</div>
+        <p class="muted" style="font-size:.86rem">A car cannot legally be driven on a Kenyan
+          road without at least third-party cover. The yard will not release the car until
+          the cover is on file — that protects you as much as them.</p>
+        <div class="grid-3">
+          <div class="field"><label for="inCo">Insurer</label><input type="text" id="inCo" placeholder="e.g. Jubilee Allianz"></div>
+          <div class="field"><label for="inPol">Policy or cover note number</label><input type="text" id="inPol" placeholder="CN/2026/…"></div>
+          <div class="field"><label for="inExp">Cover runs to</label><input type="date" id="inExp"></div>
+        </div>
+        <button class="btn primary mt" id="inGo">Send these to the dealership</button>
+        <div id="inMsg" class="mt"></div>
+        <p class="dim mt" style="font-size:.78rem">If you are financing the car, your lender
+          usually wants their interest noted on the policy. Tell your insurer which bank it is.</p>
+      </div>`;
+    $('#inGo').onclick = async () => {
+      const btn = $('#inGo');
+      btn.disabled = true;
+      try {
+        const r = await POST('/api/deal/insurance', {
+          ref, phone,
+          insurer: $('#inCo').value, policy: $('#inPol').value, expiry: $('#inExp').value,
+        });
+        $('#inMsg').innerHTML = `<div class="form-note ok"><span>✓</span><div>${esc(r.note)}</div></div>`;
+        back();
+      } catch (e) {
+        $('#inMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        btn.disabled = false;
+      }
+    };
+  }
+
+  /* ---- collection ---- */
+  async function dealCollection(box, ref, phone, back) {
+    let list = { items: [] };
+    try { list = await GET(`/api/deal/collection-list?ref=${encodeURIComponent(ref)}&phone=${encodeURIComponent(phone)}`); } catch {}
+    const soon = new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10);
+    box.innerHTML = `
+      <div class="card mt">
+        <div class="lbl">Coming for the car</div>
+        <p class="muted" style="font-size:.86rem">This is the only visit. Everything else on
+          this page can be done from where you are sitting.</p>
+        <div class="grid-2">
+          <div class="field"><label for="clDate">Day</label><input type="date" id="clDate" value="${soon}"></div>
+          <div class="field"><label for="clTime">Time</label>
+            <select id="clTime">
+              ${['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'].map((t) => `<option value="${t}">${t}</option>`).join('')}
+            </select></div>
+        </div>
+        <button class="btn primary mt" id="clGo">Book this time</button>
+        <div id="clMsg" class="mt"></div>
+
+        <hr>
+        <div class="lbl">Bring these</div>
+        <div class="bring">
+          ${list.items.map((i) => `<div class="bring-row">
+             <div><b>${esc(i.item)}</b>${i.legal ? ' <span class="tag warn">required by law</span>' : ''}</div>
+             <div class="dim" style="font-size:.84rem">${esc(i.why)}</div>
+           </div>`).join('')}
+        </div>
+        ${list.note ? `<p class="dim mt" style="font-size:.8rem">${esc(list.note)}</p>` : ''}
+      </div>`;
+    $('#clGo').onclick = async () => {
+      const btn = $('#clGo');
+      btn.disabled = true;
+      try {
+        await POST('/api/deal/collection', { ref, phone, date: $('#clDate').value, time: $('#clTime').value });
+        toast('Booked. See you then.', 'ok');
+        box.innerHTML = '';
+        back();
+      } catch (e) {
+        $('#clMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        btn.disabled = false;
+      }
+    };
+  }
+
   function pageTrack(query) {
     const savedRef = query.ref || store.get('lastRef', '');
     const savedPhone = query.phone || store.get('lastPhone', '');
@@ -2832,6 +3147,7 @@
           ${trackNow(r, phone)}
           ${TRACK_ENDED[r.status] ? '' : trackRail(r.status)}
           ${trackLogbook(r.transfer)}
+          <div id="dealOut"></div>
 
           <div class="split-r mt">
             <div>
@@ -2890,6 +3206,9 @@
 
         $('#tForm').innerHTML = formPanel(true);
         wire();
+        /* Fetched separately so a failure here cannot take the tracker down with it: the
+           customer still gets their status even if the deal panel cannot load. */
+        loadDeal(r.ref, phone);
         const rf = $('[data-act="track-refresh"]');
         if (rf) rf.onclick = load;
       } catch (e) {
