@@ -22,7 +22,7 @@ const TMP = path.join(__dirname, '..', 'data', 'broker-test.db');
 for (const suffix of ['', '-wal', '-shm']) fs.rmSync(TMP + suffix, { force: true });
 process.env.MOTOKE_DB = TMP;
 
-const { db, insert, get } = require('../lib/db');
+const { db, insert, get, run } = require('../lib/db');
 const brk = require('../lib/broker');
 const auth = require('../lib/auth');
 
@@ -61,6 +61,41 @@ ok('a second broker cannot take the same client', r2.ok === false, r2);
 ok('and is told why, without being told who', r2.reason && !/Peter/.test(r2.reason), r2.reason);
 ok('re-registering your own client is harmless', brk.registerClient({ dealerId, brokerId: peter, name: 'John Omondi', phone: '0712345678' }).already === true);
 ok('the claim still belongs to the first broker', brk.claimFor(dealerId, '0712345678') === peter);
+
+/* Found by probing rather than by a failing test, which is the uncomfortable kind. The
+   first version refused on the mere EXISTENCE of a row, so a claim that died six months
+   ago locked that customer away from every broker for good — a slow leak of unusable
+   numbers that nobody would notice until a broker could not register someone and had no
+   idea why. */
+console.log('\n— an expired claim releases the number —');
+const stale = '0798000111';
+brk.registerClient({ dealerId, brokerId: peter, name: 'Old Client', phone: stale });
+run(
+  'UPDATE broker_clients SET claim_expires=? WHERE dealer_id=? AND phone=?',
+  [new Date(Date.now() - 10 * 864e5).toISOString(), dealerId, brk.key(stale)]
+);
+ok('the dead claim holds nobody', brk.claimFor(dealerId, stale) === null);
+const taken = brk.registerClient({ dealerId, brokerId: mary, name: 'Old Client', phone: stale });
+ok('another broker can now take it', taken.ok === true, taken);
+ok('and it is reported as a renewal, not a fresh claim', taken.renewed === true);
+ok('the claim now belongs to her', brk.claimFor(dealerId, stale) === mary);
+ok('the confirmation from the previous claim does not carry over',
+  get('SELECT confirmed_by_client c FROM broker_clients WHERE dealer_id=? AND phone=?', [dealerId, brk.key(stale)]).c === 0);
+ok('a live claim is still refused', brk.registerClient({ dealerId, brokerId: peter, name: 'Old Client', phone: stale }).ok === false);
+
+console.log('\n— a suspended broker cannot take on new clients —');
+const bad = mkUser('Bad Actor', 'bad@test.ke');
+brk.saveProfile({ dealerId, brokerId: bad, idNumber: 'enc:1', kraPin: 'enc:2', address: 'x' });
+brk.registerClient({ dealerId, brokerId: bad, name: 'Before', phone: '0788000111' });
+brk.suspend(bad, 'Complaint');
+const blocked = brk.registerClient({ dealerId, brokerId: bad, name: 'After', phone: '0788000222' });
+ok('registering is refused while suspended', blocked.ok === false, blocked);
+ok('and the message says why', /suspended/i.test(blocked.reason), blocked.reason);
+ok('but claims held before the suspension still stand',
+  brk.claimFor(dealerId, '0788000111') === bad);
+brk.reinstate(bad);
+ok('and registering works again once reinstated',
+  brk.registerClient({ dealerId, brokerId: bad, name: 'After', phone: '0788000222' }).ok === true);
 
 console.log('\n— the shape of the number does not matter —');
 ok('registered as 07, found as +254', brk.claimFor(dealerId, '+254712345678') === peter);
