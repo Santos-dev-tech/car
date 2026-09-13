@@ -2557,6 +2557,126 @@
    * Plenty of decent brokers will not be on it yet, and a site that brands them all as
    * frauds is both wrong and quickly ignored.
    */
+  /** What a lender actually asks for, in the order a customer can find them. */
+  const UPLOAD_DOCS = [
+    ['id', 'National ID', 'Both sides. A clear photo of the card is fine.'],
+    ['kra_pin', 'KRA PIN certificate', 'Download it from iTax if you do not have the PDF.'],
+    ['payslip', 'Payslips', 'The last three months.'],
+    ['bank_statement', 'Bank statement', 'Six months, stamped by the bank.'],
+    ['mpesa_statement', 'M-Pesa statement', 'Only if you are self-employed or in business.'],
+    ['business_permit', 'Business permit', 'Only if the income is from a business.'],
+    ['other', 'Anything else', 'A letter from your employer, for example.'],
+  ];
+
+  /**
+   * Upload your documents.
+   *
+   * This page did not exist. The tracker has been telling customers "nothing moves until
+   * this is done" and linking them to #/upload, which had no route — so the one screen
+   * standing between an application and a lender was a page-not-found. The endpoint was
+   * there the whole time; nobody had built the front of it.
+   *
+   * Files are read in the browser and posted as base64 data URLs, which is what the API
+   * expects. The phone number is the authorisation: the server matches it against the
+   * application before accepting anything, so nobody can push documents onto a stranger's
+   * file by guessing a number.
+   */
+  async function pageUpload(query) {
+    const ref = query.ref || store.get('lastRef', '');
+    const phone = query.phone || store.get('lastPhone', '');
+
+    view.innerHTML = `
+      <nav class="crumbs mt"><a href="#/">Home</a> <span>›</span>
+        <a href="#/track?ref=${encodeURIComponent(ref)}">Your application</a> <span>›</span>
+        <b>Documents</b></nav>
+      <h1 class="mt">Send us your documents</h1>
+      <p class="muted" style="max-width:58ch">Nothing moves until a lender has these.
+        Photos from your phone are fine — they only have to be readable.</p>
+      <div id="upBody" class="mt"><div class="spinner"></div></div>`;
+
+    let app;
+    try {
+      app = await GET(`/api/applications/track?ref=${encodeURIComponent(ref)}&phone=${encodeURIComponent(phone)}`);
+    } catch (err) {
+      $('#upBody').innerHTML = `
+        <div class="card" style="max-width:520px">
+          <div class="form-note err"><span>✕</span><div>${esc(err.message)}</div></div>
+          <p class="muted mt">Open your application first and the link will bring you back here.</p>
+          <a class="btn primary mt" href="#/track">Find my application</a>
+        </div>`;
+      return;
+    }
+
+    const already = {};
+    (app.documents || []).forEach((d) => { already[d.doc_type] = (already[d.doc_type] || 0) + 1; });
+
+    $('#upBody').innerHTML = `
+      <div class="card" style="max-width:640px">
+        <div class="lbl" style="margin:0">Application</div>
+        <div style="font-size:1.1rem;font-weight:700">${esc(app.ref)}</div>
+        <div class="dim">${esc((app.vehicle && app.vehicle.title) || '')}</div>
+      </div>
+
+      <div class="mt">
+        ${UPLOAD_DOCS.map(
+          ([key, label, hint]) => `
+          <div class="card tight mt">
+            <div class="row between wrap-r">
+              <div>
+                <b>${esc(label)}</b>
+                <div class="dim" style="font-size:.82rem">${esc(hint)}</div>
+              </div>
+              ${already[key] ? `<span class="tag ok">${already[key]} sent</span>` : '<span class="dim">Not sent</span>'}
+            </div>
+            <input type="file" class="mt" data-doc="${key}" multiple
+                   accept="image/jpeg,image/png,image/webp,application/pdf">
+          </div>`
+        ).join('')}
+      </div>
+
+      <div class="card mt" style="max-width:640px">
+        <button class="btn primary block lg" id="upGo">Send them</button>
+        <div id="upMsg" class="mt"></div>
+        <p class="dim mt" style="font-size:.78rem">PDF, JPG, PNG or WebP. Stored encrypted,
+          and only the people working on your application can open them.</p>
+      </div>`;
+
+    $('#upGo').onclick = async () => {
+      const btn = $('#upGo');
+      const pending = [];
+      $$('[data-doc]').forEach((input) => {
+        [...(input.files || [])].forEach((f) => pending.push({ type: input.dataset.doc, file: f }));
+      });
+      if (!pending.length) {
+        $('#upMsg').innerHTML = '<div class="form-note err"><span>✕</span><div>Choose at least one file first.</div></div>';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = `Sending ${pending.length}…`;
+      try {
+        const documents = await Promise.all(
+          pending.map(
+            (p) =>
+              new Promise((resolve, reject) => {
+                const fr = new FileReader();
+                fr.onload = () => resolve({ type: p.type, filename: p.file.name, data: fr.result });
+                fr.onerror = () => reject(new Error(`Could not read ${p.file.name}`));
+                fr.readAsDataURL(p.file);
+              })
+          )
+        );
+        const r = await POST(`/api/applications/${app.id || ''}/documents`, { phone, documents });
+        toast(`${r.added} document${r.added === 1 ? '' : 's'} sent`, 'ok');
+        go(`#/track?ref=${encodeURIComponent(ref)}&phone=${encodeURIComponent(phone)}`);
+      } catch (err) {
+        $('#upMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(err.message)}</div></div>`;
+        btn.disabled = false;
+        btn.textContent = 'Send them';
+      }
+    };
+  }
+
   function pageBrokerCheck() {
     view.innerHTML = `
       <nav class="crumbs mt"><a href="#/">Home</a> <span>›</span> <b>Check a broker</b></nav>
@@ -4296,6 +4416,8 @@
           return pageTrack(query);
         case 'broker-check':
           return pageBrokerCheck();
+        case 'upload':
+          return await pageUpload(query);
         case 'financing':
           return await pageFinancing(path[1], query);
         case 'reserve':
