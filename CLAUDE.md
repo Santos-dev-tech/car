@@ -102,10 +102,10 @@ node --no-warnings tools/firebase-test.js     # 32  ID token verification, no se
 node --no-warnings tools/valuation-test.js    # 62  price indicator + depreciation, no server
 node --no-warnings tools/inventory-test.js    # 63  stock ageing + repricing, no server
 node --no-warnings tools/broker-test.js       # 102 attribution + verification, no server
-node --no-warnings tools/smoke.js 4000        # 284 the whole API, needs the server up
+node --no-warnings tools/smoke.js 4000        # 286 the whole API, needs the server up
 ```
 
-**762 assertions. All nine pass.** Each exits with its failure count, so any of them can
+**764 assertions. All nine pass.** Each exits with its failure count, so any of them can
 gate a deploy. `audit.js` is the one that matters before anything goes public — it greps
 for committed secrets, refuses third-party imports, and asserts the named security controls
 and front-end invariants are still in place.

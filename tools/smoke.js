@@ -834,7 +834,17 @@ const PDF_DATA_URL =
        the dealer's private position is the permission list. The unit tests prove the
        attribution logic; these prove the SERVER enforces it over HTTP, which is the part
        an attacker actually touches. */
-    const broker = await asRole('peter@broker.demo', 'demo123');
+    /* Signed in by hand rather than through asRole, because the thing being checked is
+       the SECOND FACTOR. A broker's account holds a book of real people's names and
+       numbers, and anyone holding his password could register claims in his name and take
+       his commissions. He is not staff for any other purpose; he is here. */
+    cookie = '';
+    const bStart = await api('POST', '/api/auth/login', { email: 'peter@broker.demo', password: 'demo123' });
+    ok('a broker is asked for a second factor too', bStart.json.needsOtp === true, bStart.json);
+    ok('and gets no session until the code is given', (await api('GET', '/api/auth/me')).json.user == null);
+    await api('POST', '/api/auth/verify-otp', { email: 'peter@broker.demo', code: bStart.json.demoCode });
+    const broker = (await api('GET', '/api/auth/me')).json;
+    sessions['peter@broker.demo'] = { cookie, me: broker };
     ok('the broker signs in', broker.user && broker.user.role === 'broker', broker.user);
     ok('and belongs to no single yard', broker.user.dealer_id == null, broker.user.dealer_id);
 

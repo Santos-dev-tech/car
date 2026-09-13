@@ -24,8 +24,8 @@
     ['Leads', 'leads', '☎', 'leads'],
     ['Introducers', 'brokers', '🤝', 'applications'],
     ['Logbooks', 'transfers', '📗', 'applications'],
-    /* A broker holds only `broker`, `inventory` and `prequal`, so these two are the only
-       entries that survive the filter for them and every screen above vanishes. */
+    /* A broker holds only `broker`, `inventory` and `prequal`. Everything above Inventory
+       vanishes for them, and what is left is these four plus the stock and the calculator. */
     ['Check a client', 'check', '🧮', 'broker'],
     ['Paying extra', 'bonus', '💰', 'broker'],
     ['My clients', 'clients', '👥', 'broker'],
@@ -70,6 +70,11 @@
     { email: 'grace@summitmotors.demo', password: 'demo123', role: 'Dealer admin' },
     { email: 'brian@summitmotors.demo', password: 'demo123', role: 'Sales agent' },
     { email: 'faith@summitmotors.demo', password: 'demo123', role: 'Finance officer' },
+    /* A broker is not staff of this yard - he has no dealer_id and walks into four yards in
+       a week. He signs in here anyway because there is one console and one session, and a
+       second sign-in page would be a second thing to keep secure for no gain. What he can
+       reach is decided by the permission list in auth.js, not by which door he came through. */
+    { email: 'peter@broker.demo', password: 'demo123', role: 'Broker — his own clients only' },
   ];
 
   function renderLogin() {
@@ -80,7 +85,8 @@
 
     view.innerHTML = `<div class="card" style="max-width:420px;margin:8vh auto">
       <h2>Staff sign in</h2>
-      <p class="muted" style="font-size:.88rem">Console for dealership staff — inventory, applications, lenders and rules.</p>
+      <p class="muted" style="font-size:.88rem">Dealership staff — inventory, applications, lenders and rules.
+        Brokers sign in here too, and see only their own clients.</p>
       <div class="field"><label for="e">Email</label><input type="email" id="e" autocomplete="username"><div class="msg"></div></div>
       ${passwordField('p', 'Password')}
       <button class="btn primary block lg" id="go">Sign in</button>
@@ -217,6 +223,24 @@
       A.chrome = true;
       initChrome();
     }
+  }
+
+  /**
+   * Where an empty hash lands.
+   *
+   * Overview is home for anyone who runs the yard. A broker does not run the yard, and
+   * signing in as one for the first time landed on "Your role does not have access to
+   * this (overview)" — an error page, while every screen he owns sat in the menu beside
+   * it. Found by actually signing in rather than by a test, because no test clicks Sign
+   * in and then reads the page.
+   */
+  const HOME_BY_ROLE = { broker: 'clients' };
+  function homeRoute() {
+    const mine = HOME_BY_ROLE[A.user.role];
+    if (mine) return mine;
+    if (allow('overview')) return '';
+    const first = NAV.find((n) => n[0] !== 'SECTION' && (!n[3] || allow(n[3])));
+    return first ? first[1] : '';
   }
 
   const can = (...roles) => roles.includes(A.user.role);
@@ -2384,8 +2408,14 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
     try {
       switch (path[0]) {
         case undefined:
-        case '':
+        case '': {
+          const home = homeRoute();
+          if (home) {
+            location.hash = '#/' + home;   // fires hashchange, which renders it
+            return;
+          }
           return await pageOverview();
+        }
         case 'applications':
           return await pageApplications(query);
         case 'prequal':
