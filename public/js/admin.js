@@ -26,6 +26,7 @@
     /* A broker holds only `broker`, `inventory` and `prequal`, so these two are the only
        entries that survive the filter for them and every screen above vanishes. */
     ['Check a client', 'check', '🧮', 'broker'],
+    ['Paying extra', 'bonus', '💰', 'broker'],
     ['My clients', 'clients', '👥', 'broker'],
     ['My verification', 'verify', '🛡', 'broker'],
     ['SECTION', 'Finance'],
@@ -834,17 +835,31 @@
 
       <h3 class="mt-lg">Longest in stock</h3>
       <div class="scroll-x"><table class="tbl">
-        <thead><tr><th>Vehicle</th><th class="num">Days</th><th class="num">Price</th><th class="num">Views</th><th class="num">Held cost</th><th class="num">Losing</th></tr></thead>
+        <thead><tr><th>Vehicle</th><th class="num">Days</th><th class="num">Price</th><th class="num">Views</th><th class="num">Held cost</th><th class="num">Losing</th><th></th></tr></thead>
         <tbody>${a.oldest
           .map(
             (r) => `<tr><td>${esc(r.title)} ${r.status === 'reserved' ? '<span class="tag">reserved</span>' : ''}</td>
               <td class="num"><span class="tag ${r.tone}">${r.days}</span></td>
               <td class="num">${KES(r.price)}</td><td class="num">${r.views}</td>
               <td class="num">${KES(r.carrying.total)}</td>
-              <td class="num">${r.carrying.depreciationRatePct}%<div class="dim" style="font-size:.72rem">a year, this car</div></td></tr>`
+              <td class="num">${r.carrying.depreciationRatePct}%<div class="dim" style="font-size:.72rem">a year, this car</div></td>
+              <td><button class="btn sm" data-bonus="${r.id}" data-title="${esc(r.title)}">Pay a broker extra</button></td></tr>`
           )
           .join('')}</tbody>
       </table></div>`;
+
+    /* Set from the ageing screen deliberately: the dealer decides how much a broker is
+       worth to them while the cost of holding the car is on the same row. */
+    on(view, 'click', '[data-bonus]', (e, el) => {
+      const current = prompt(`Extra to pay a broker for moving the ${el.dataset.title}?
+
+Enter an amount in shillings, or 0 to withdraw the offer.`);
+      if (current === null) return;
+      const amount = Math.max(0, Math.round(Number(current) || 0));
+      PATCH(`/api/admin/vehicles/${el.dataset.bonus}`, { broker_bonus: amount })
+        .then(() => { toast(amount ? `Brokers will see +${KES(amount)}` : 'Offer withdrawn', 'ok'); render(); })
+        .catch((err) => toast(err.message, 'err'));
+    });
 
     on(view, 'click', '[data-reprice]', (e, el) => {
       const to = Number(el.dataset.to);
@@ -1172,6 +1187,32 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
         <p class="dim mt-lg" style="font-size:.8rem">Saved as <code>${esc(r.ref)}</code> against
           this client, so you can pull it up when they call back.</p>`;
     }
+  }
+
+  /* The broker sees the offer and never the reason. Days in stock and what the car is
+     costing the yard to hold are the dealer's private position. */
+  async function pageBrokerBonus() {
+    view.innerHTML = '<div class="spinner"></div>';
+    const d = await GET('/api/admin/broker/bonus-stock');
+    view.innerHTML = `
+      <h2>Paying extra</h2>
+      <p class="muted" style="margin-top:-6px">${esc(d.note)}</p>
+      ${
+        d.items.length
+          ? `<div class="veh-grid mt">${d.items
+              .map(
+                (v) => `<article class="card tight">
+                  <div class="row between">
+                    <b>${esc(v.title)}</b>
+                    <span class="tag ok">+${KES(v.bonus)}</span>
+                  </div>
+                  <div class="dim" style="font-size:.82rem">${KES(v.price)} · ${esc(v.bodyType || '')} · ${num(v.mileage)} km</div>
+                  <a class="btn sm mt" href="#/inventory">See it in stock</a>
+                </article>`
+              )
+              .join('')}</div>`
+          : '<div class="empty">Nothing extra on offer right now. Check back — yards add these when a car has been sitting.</div>'
+      }`;
   }
 
   /* ---------------- introducers (the dealer's view) ----------------
@@ -2167,6 +2208,8 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
           return await pageIntroducers();
         case 'check':
           return await pageBrokerCheck();
+        case 'bonus':
+          return await pageBrokerBonus();
         case 'clients':
           return await pageBrokerClients();
         case 'verify':
