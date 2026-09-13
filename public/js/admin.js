@@ -23,6 +23,7 @@
     ['Stock ageing', 'ageing', '⏳', 'ageing'],
     ['Leads', 'leads', '☎', 'leads'],
     ['Introducers', 'brokers', '🤝', 'applications'],
+    ['Logbooks', 'transfers', '📗', 'applications'],
     /* A broker holds only `broker`, `inventory` and `prequal`, so these two are the only
        entries that survive the filter for them and every screen above vanishes. */
     ['Check a client', 'check', '🧮', 'broker'],
@@ -1215,6 +1216,75 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
       }`;
   }
 
+  /* ---------------- logbooks ----------------
+     The chase list. Until NTSA completes the transfer the dealership is still the
+     registered owner of a car it has handed over, so the oldest outstanding one is the
+     most urgent thing on this screen — which is why it sorts that way rather than by
+     date of sale. */
+
+  async function pageTransfers() {
+    view.innerHTML = '<div class="spinner"></div>';
+    const d = await GET('/api/admin/transfers');
+    const slow = d.items.filter((t) => t.status.slow);
+
+    view.innerHTML = `
+      <h2>Logbooks</h2>
+      <p class="muted" style="margin-top:-6px">Until NTSA completes the transfer, you are
+        still the registered owner of a car you no longer have.</p>
+
+      ${
+        slow.length
+          ? `<div class="card mt" style="border-left:4px solid var(--err)">
+               <b>${slow.length} ${slow.length === 1 ? 'transfer has' : 'transfers have'} taken longer than NTSA normally needs.</b>
+               <div class="dim" style="font-size:.85rem">Worth a phone call today.</div>
+             </div>`
+          : ''
+      }
+
+      ${
+        d.items.length
+          ? `<div class="scroll-x mt"><table class="tbl">
+              <thead><tr><th>Ref</th><th>Reg</th><th>Where it is</th><th>Waiting on</th><th class="num">Days</th><th class="num">NTSA fee</th><th></th></tr></thead>
+              <tbody>${d.items
+                .map(
+                  (t) => `<tr>
+                    <td class="mono">${esc(t.ref)}</td>
+                    <td>${esc(t.regNo || '—')}</td>
+                    <td>
+                      <b>${esc(t.status.label)}</b>
+                      <div class="dim" style="font-size:.76rem">${esc(t.status.blurb)}</div>
+                    </td>
+                    <td>${t.status.waitingOn ? `<span class="tag ${t.status.slow ? 'err' : ''}">${esc(t.status.waitingOn)}</span>` : '<span class="dim">—</span>'}</td>
+                    <td class="num">${t.status.daysSinceStarted == null ? '<span class="dim">not started</span>' : t.status.daysSinceStarted}</td>
+                    <td class="num">${KES(t.status.cost.total)}</td>
+                    <td>${
+                      t.status.nextLabel
+                        ? `<button class="btn sm" data-advance="${t.id}" data-stage="${esc(nextStageKey(d.stages, t.status.stage))}">${esc(t.status.nextLabel)}</button>`
+                        : ''
+                    }</td>
+                  </tr>`
+                )
+                .join('')}</tbody></table></div>
+             <p class="dim mt" style="font-size:.8rem">A transfer only moves forward here.
+               Correcting a genuine mistake is a conversation, not a button — a customer
+               watching their logbook go backwards loses whatever confidence this screen
+               was built to give them.</p>`
+          : '<div class="empty">Every logbook is settled. Nothing outstanding.</div>'
+      }`;
+
+    on(view, 'click', '[data-advance]', (e, el) => {
+      POST(`/api/admin/applications/${el.dataset.advance}/transfer`, { stage: el.dataset.stage })
+        .then(() => { toast('Moved on', 'ok'); render(); })
+        .catch((err) => toast(err.message, 'err'));
+    });
+  }
+
+  /** The key of the stage after this one, from the list the server sent. */
+  function nextStageKey(stages, current) {
+    const i = stages.findIndex((s) => s.key === (current || 'not_started'));
+    return (stages[i + 1] || stages[stages.length - 1]).key;
+  }
+
   /* ---------------- introducers (the dealer's view) ----------------
      Only brokers who have actually brought THIS dealership business. A directory of
      other people's introducers is not a dealership's business. */
@@ -2206,6 +2276,8 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
           return await pageAgeing();
         case 'brokers':
           return await pageIntroducers();
+        case 'transfers':
+          return await pageTransfers();
         case 'check':
           return await pageBrokerCheck();
         case 'bonus':

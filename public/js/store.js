@@ -98,6 +98,7 @@
       { t: 'Get pre-qualified', s: 'One form, every lender answers', href: '#/financing/prequalify' },
       { t: 'Sell your car', s: 'Valuation and trade-in', href: '#/sell' },
       { t: 'Track an application', s: 'Progress by reference number', href: '#/track' },
+      { t: 'Check a broker', s: 'Is the person you are dealing with real?', href: '#/broker-check' },
       { t: 'FAQs', s: 'Financing questions answered', href: '#/financing/faq' },
       { t: 'Contact us', s: 'Phone, WhatsApp and branches', href: '#/contact' },
     ];
@@ -2544,6 +2545,62 @@
     </div>`;
   }
 
+  /**
+   * Check a broker, for the person being asked to trust one.
+   *
+   * The register was only ever shown to dealerships, which solves the dealership's
+   * problem and does nothing for the buyer — and the buyer is the one a stranger is
+   * asking for an ID copy and a deposit. Kenyan forums are full of people warned off
+   * brokers for precisely that.
+   *
+   * "Not on the register" is written as an honest non-answer rather than a red warning.
+   * Plenty of decent brokers will not be on it yet, and a site that brands them all as
+   * frauds is both wrong and quickly ignored.
+   */
+  function pageBrokerCheck() {
+    view.innerHTML = `
+      <nav class="crumbs mt"><a href="#/">Home</a> <span>›</span> <b>Check a broker</b></nav>
+      <h1 class="mt">Is this broker real?</h1>
+      <p class="muted" style="max-width:56ch">Someone offering to find you a car, arrange
+        finance, or take your documents? Put their number in.</p>
+
+      <div class="card mt" style="max-width:520px">
+        <div class="field">
+          <label for="bkPhone">Their phone number</label>
+          <input id="bkPhone" inputmode="tel" placeholder="0712 345 678" autocomplete="off">
+        </div>
+        <button class="btn primary block lg mt" id="bkGo">Check</button>
+      </div>
+      <div id="bkOut" class="mt"></div>`;
+
+    const run = async () => {
+      const btn = $('#bkGo');
+      btn.disabled = true;
+      try {
+        const r = await GET('/api/broker-check?phone=' + encodeURIComponent($('#bkPhone').value));
+        const tone = r.verified ? 'ok' : r.status === 'suspended' ? 'err' : r.found ? '' : 'warn';
+        $('#bkOut').innerHTML = `
+          <div class="card" style="max-width:560px;border-left:4px solid var(--${tone === 'ok' ? 'ok' : tone === 'err' ? 'err' : 'line-2'})">
+            ${r.found ? `<div class="lbl" style="margin:0">Registered as</div>
+                         <div style="font-size:1.3rem;font-weight:700">${esc(r.name)}</div>` : ''}
+            <div class="row between mt">
+              <span class="tag ${tone}" style="font-size:.95rem">${esc(r.label)}</span>
+            </div>
+            <p class="muted mt" style="font-size:.92rem">${esc(r.means)}</p>
+            ${r.basis ? `<p class="dim" style="font-size:.8rem">${esc(r.basis)}</p>` : ''}
+            <div class="form-note mt"><span>!</span><div>${esc(
+              r.caution || 'Never send a deposit to a personal account, and never hand over original documents.'
+            )}</div></div>
+          </div>`;
+      } catch (err) {
+        $('#bkOut').innerHTML = `<div class="card err-text" style="max-width:520px">${esc(err.message)}</div>`;
+      }
+      btn.disabled = false;
+    };
+    $('#bkGo').onclick = run;
+    $('#bkPhone').onkeydown = (e) => e.key === 'Enter' && run();
+  }
+
   function pageTrack(query) {
     const savedRef = query.ref || store.get('lastRef', '');
     const savedPhone = query.phone || store.get('lastPhone', '');
@@ -4183,6 +4240,8 @@
           return pageDone(path[1]);
         case 'track':
           return pageTrack(query);
+        case 'broker-check':
+          return pageBrokerCheck();
         case 'financing':
           return await pageFinancing(path[1], query);
         case 'reserve':
