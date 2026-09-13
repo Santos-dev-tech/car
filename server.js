@@ -54,6 +54,46 @@ const MIME = {
   '.woff2': 'font/woff2',
 };
 
+/**
+ * A short hash of a file's current contents, used to version its URL.
+ *
+ * `Cache-Control: no-cache` asks a browser to revalidate, which is not the same as
+ * guaranteeing it will. Between a proxy, a phone on a bad connection and a tab that has
+ * simply not been reloaded, "the fix is live but the user is still on the old file" is a
+ * real and genuinely maddening state: they report a bug that no longer exists and there
+ * is no way to tell from either side.
+ *
+ * Versioning the URL removes the argument. A changed file gets a new address, and an old
+ * address cannot be served by accident.
+ */
+const assetVersions = new Map();
+function assetVersion(rel) {
+  const file = path.join(PUBLIC_DIR, rel.replace(/^\//, ''));
+  try {
+    const stat = fs.statSync(file);
+    const key = rel + stat.mtimeMs + stat.size;
+    if (assetVersions.has(key)) return assetVersions.get(key);
+    const hash = require('node:crypto')
+      .createHash('sha1')
+      .update(fs.readFileSync(file))
+      .digest('hex')
+      .slice(0, 8);
+    assetVersions.clear(); // only ever one version of a file is current
+    assetVersions.set(key, hash);
+    return hash;
+  } catch {
+    return '';
+  }
+}
+
+/** Stamp every local css/js reference in an HTML shell with its file's version. */
+function versionAssets(html) {
+  return html.replace(/(src|href)="(\/(?:js|css)\/[^"?]+\.(?:js|css))"/g, (m, attr, url) => {
+    const v = assetVersion(url);
+    return v ? `${attr}="${url}?v=${v}"` : m;
+  });
+}
+
 function serveStatic(req, res, pathname) {
   let rel = decodeURIComponent(pathname);
   if (rel === '/') rel = '/index.html';
@@ -65,12 +105,15 @@ function serveStatic(req, res, pathname) {
   }
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) return false;
   const ext = path.extname(filePath).toLowerCase();
-  const body = fs.readFileSync(filePath);
+  let body = fs.readFileSync(filePath);
+  if (ext === '.html') body = Buffer.from(versionAssets(body.toString('utf8')), 'utf8');
   res.writeHead(200, {
     'Content-Type': MIME[ext] || 'application/octet-stream',
     'Content-Length': body.length,
-    // app shell is revalidated every load; only static media is cached
-    'Cache-Control': ['.html', '.js', '.css'].includes(ext) ? 'no-cache' : 'public, max-age=3600',
+    /* The shell itself must never be cached — it carries the version numbers. The files
+       it points at now have those numbers in their URLs, so they can be cached hard:
+       a change produces a different address rather than a stale hit. */
+    'Cache-Control': ext === '.html' ? 'no-store' : 'public, max-age=31536000',
   });
   res.end(body);
   return true;
