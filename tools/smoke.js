@@ -1006,6 +1006,54 @@ const PDF_DATA_URL =
       (await api('GET', `/api/admin/statements/preview?payerType=nobody&period=${period}`)).status === 400);
   }
 
+  console.log('\n· signing a broker up in a field');
+  {
+    /* A name and a phone number, because every extra box at a car bazaar is somebody
+       walking away. The phone number IS the account, which is exactly where the danger
+       is: if typing a number were enough to get in, anyone could type a working broker's
+       number and take his client book. Creating and entering are therefore two different
+       things, and these assertions are mostly about the second one. */
+    const keep = cookie;
+    cookie = '';
+    const bphone = '07' + String(Math.floor(10000000 + Math.random() * 89999999));
+
+    const join = await api('POST', '/api/broker/quick-join', { name: 'Bazaar Test Broker', phone: bphone });
+    ok('a broker signs up with a name and a number', join.status === 200 && join.json.created === true, join.json);
+    ok('no email or password was asked for', !/email|password/i.test(JSON.stringify(join.json)));
+    ok('the number it sends to is masked', /•/.test(join.json.sentTo || ''), join.json.sentTo);
+    ok('and there is a WhatsApp message ready to send them',
+      /^https:\/\/wa\.me\/254/.test(join.json.whatsapp || ''), (join.json.whatsapp || '').slice(0, 40));
+
+    ok('signing up does NOT sign you in', (await api('GET', '/api/auth/me')).json.user == null);
+
+    const wrong = await api('POST', '/api/broker/quick-join/verify', { phone: bphone, code: '000000' });
+    ok('a wrong code is refused', wrong.status === 400, wrong.json);
+    const unknown = await api('POST', '/api/broker/quick-join/verify', { phone: '0700000123', code: '123456' });
+    ok('an unknown number is refused', unknown.status === 400);
+    ok('with the SAME words, so nobody can find out which numbers exist',
+      unknown.json.error === wrong.json.error, [wrong.json.error, unknown.json.error]);
+
+    const again = await api('POST', '/api/broker/quick-join', { name: 'Somebody Else Entirely', phone: bphone });
+    ok('registering an existing number makes no second account', again.json.created === false, again.json);
+    ok('and cannot rename the person who owns it', again.json.name === 'Bazaar Test Broker', again.json.name);
+
+    const inn = await api('POST', '/api/broker/quick-join/verify', { phone: bphone, code: again.json.code });
+    ok('the right code opens the account', inn.status === 200 && inn.json.user.role === 'broker', inn.json);
+    ok('and lands them on their own clients', inn.json.next === '/admin#/clients');
+    ok('they are signed in now', (await api('GET', '/api/auth/me')).json.user.role === 'broker');
+
+    ok('the code cannot be used twice',
+      (await api('POST', '/api/broker/quick-join/verify', { phone: bphone, code: again.json.code })).status === 400);
+
+    /* No password exists for this account, so password sign-in is not merely disabled -
+       there is nothing to guess. */
+    cookie = '';
+    const pw = await api('POST', '/api/auth/login', { email: bphone.replace(/\D/g, '').replace(/^0/, '254') + '@phone.motoke.invalid', password: 'password' });
+    ok('the synthetic address cannot be used to sign in', pw.status === 401, pw.json);
+
+    cookie = keep;
+  }
+
   console.log('\n· role permissions');
   {
     /* Hiding a menu item is decoration. These check the SERVER refuses, which is the

@@ -586,5 +586,45 @@ html[data-theme="dark"] .console .cg-from { stop-opacity: .3; }
 @media (max-width: 900px) {
   .console #view { padding: var(--c-5) var(--c-4); }
   .console .sidebar-admin { width: 100%; min-height: 0; border-right: 0; border-bottom: 1px solid var(--c-line); }
-  .console #shell { flex-direction: column; }
+
+  /* STACKED, AND STRETCHED. The second half of that is not optional and its absence is
+     why the console hung 213px off the right of a phone.
+
+     #shell carries align-items:flex-start inline, which is right for the desktop ROW
+     layout - it stops the sidebar stretching to the full height of a long page. Turned
+     into a COLUMN, that same rule stops the main pane filling the width: a flex item on
+     the cross axis sizes to its own content instead, so #view grew to its widest child
+     and everything to the right of 375px was simply unreachable. Nothing errored and the
+     page looked fine until you tried to read the right-hand side of a table.
+
+     Found by measuring scrollWidth against clientWidth rather than by looking, because a
+     screenshot of the visible part of an overflowing page looks perfectly normal. */
+  .console #shell { flex-direction: column; align-items: stretch; }
+  .console #view { width: 100%; max-width: 100%; min-width: 0; }
+
+  /* The top bar carries a dealership tag, a role, a name and three buttons. On a phone
+     that is wider than the phone, so it wraps rather than pushing the page sideways. */
+  .console .topbar .wrap { flex-wrap: wrap; row-gap: 8px; padding: 8px var(--c-4); }
+  .console #topRight { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+
+  /* A table on a phone scrolls inside its own box. The page itself never does. */
+  .console .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  .console table.tbl { min-width: 560px; }
+}
+
+/* Nothing on a phone may make the PAGE scroll sideways. A table or a rail scrolling
+   inside its own container is a design; the whole page sliding under your thumb is a bug,
+   and it is the one people notice first and trust least. */
+/* A row of buttons on a phone is always wider than the phone. Wrapping them is never
+   wrong here, and the alternative - each page remembering to add wrap-r - is a rule that
+   gets forgotten on exactly the page nobody tested. The inventory toolbar is where it was
+   forgotten, and it pushed the console 263px sideways. */
+@media (max-width: 720px) {
+  .console .row { flex-wrap: wrap; }
+}
+
+@media (max-width: 560px) {
+  .console .kpis { grid-template-columns: 1fr; }
+  .console .grid-2, .console .grid-3 { grid-template-columns: 1fr; }
+  .console .row.wrap-r { flex-wrap: wrap; }
 }

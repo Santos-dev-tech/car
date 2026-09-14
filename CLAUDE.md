@@ -105,10 +105,10 @@ node --no-warnings tools/broker-test.js       # 102 attribution + verification, 
 node --no-warnings tools/deal-test.js         # 52  signing, balance, insurance, handover, no server
 node --no-warnings tools/insurance-test.js    # 56  quotes, the commission cap, renewals, no server
 node --no-warnings tools/statement-test.js    # 59  monthly statements and the month boundary, no server
-node --no-warnings tools/smoke.js 4000        # 371 the whole API, needs the server up
+node --no-warnings tools/smoke.js 4000        # 386 the whole API, needs the server up
 ```
 
-**1,016 assertions. All twelve pass.** Each exits with its failure count, so any of them can
+**1,031 assertions. All twelve pass.** Each exits with its failure count, so any of them can
 gate a deploy. `audit.js` is the one that matters before anything goes public — it greps
 for committed secrets, refuses third-party imports, and asserts the named security controls
 and front-end invariants are still in place.

@@ -99,6 +99,7 @@
       { t: 'Sell your car', s: 'Valuation and trade-in', href: '#/sell' },
       { t: 'Track an application', s: 'Progress by reference number', href: '#/track' },
       { t: 'Check a broker', s: 'Is the person you are dealing with real?', href: '#/broker-check' },
+      { t: 'Introducers — sign up', s: 'Free. Register a client and keep the claim', href: '#/join' },
       { t: 'FAQs', s: 'Financing questions answered', href: '#/financing/faq' },
       { t: 'Contact us', s: 'Phone, WhatsApp and branches', href: '#/contact' },
     ];
@@ -3207,6 +3208,132 @@
     };
   }
 
+  /* ------------------------------------------------------------------
+     Signing a broker up while standing next to a car.
+
+     Everything about this page assumes a thumb, one hand, bright sunlight and somebody
+     who will walk away if it takes longer than about twenty seconds. Two boxes and a
+     button. No email. No password. No account to remember.
+
+     The other page for this is #/broker-join, which asks for all four and is right for
+     somebody at a desk. This one is for Jamhuri on a Sunday.
+     ------------------------------------------------------------------ */
+  function pageJoin() {
+    view.innerHTML = `
+      <section class="join-wrap">
+        <div class="join-card">
+          <div class="lbl">Introducers</div>
+          <h1 class="join-h1">Get paid for the client,<br>not just the car</h1>
+          <p class="join-sub">Register your client's number <b>before</b> you bring them in.
+            For 90 days after that, whatever car they buy here is credited to you — even if
+            they walk in for a Prado and drive out in a Harrier.</p>
+
+          <div class="join-points">
+            <div><span>✓</span><div>Free. No commission taken from you, ever.</div></div>
+            <div><span>✓</span><div>The bank's agent cannot take your client off you.</div></div>
+            <div><span>✓</span><div>First to register the number keeps the claim.</div></div>
+          </div>
+
+          <div id="joinStep">
+            <div class="field join-field">
+              <label for="jName">Your name</label>
+              <input type="text" id="jName" autocomplete="name" autocapitalize="words"
+                placeholder="Peter Kariuki" enterkeyhint="next">
+            </div>
+            <div class="field join-field">
+              <label for="jPhone">Your phone number</label>
+              <input type="tel" id="jPhone" inputmode="tel" autocomplete="tel"
+                placeholder="0712 345 678" enterkeyhint="go">
+            </div>
+            ${honeypot()}
+            <button class="btn primary join-go" id="jGo">Sign me up</button>
+            <p class="join-fine">That is the whole form. We will send a 6-digit code to that
+              number to open your account.</p>
+          </div>
+
+          <div id="joinMsg"></div>
+        </div>
+      </section>`;
+
+    const el = (id) => $('#' + id);
+    const go = async () => {
+      const btn = el('jGo');
+      btn.disabled = true;
+      btn.textContent = 'One moment…';
+      el('joinMsg').innerHTML = '';
+      try {
+        const r = await POST('/api/broker/quick-join', {
+          name: el('jName').value,
+          phone: el('jPhone').value,
+          ...botFields(),
+        });
+        codeStep(r);
+      } catch (e) {
+        el('joinMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+        btn.disabled = false;
+        btn.textContent = 'Sign me up';
+      }
+    };
+    el('jGo').onclick = go;
+    /* addEventListener, never onkeydown. An arrow function with an expression body returns
+       false for every key that is not Enter, and returning false from a DOM0 handler
+       cancels the keystroke — which is what once made these boxes look like they refused
+       to type at all. */
+    ['jName', 'jPhone'].forEach((id) => {
+      el(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+    });
+
+    function codeStep(r) {
+      $('#joinStep').innerHTML = `
+        <div class="form-note ok"><span>✓</span><div>${
+          r.created ? 'You are registered.' : 'You already had an account — welcome back.'
+        } A code is on its way to ${esc(r.sentTo)}.</div></div>
+
+        ${
+          r.code
+            ? `<div class="join-code-box">
+                 <div class="lbl">Demo mode — no SMS gateway wired up</div>
+                 <div class="join-code">${esc(r.code)}</div>
+               </div>`
+            : ''
+        }
+
+        <div class="field join-field">
+          <label for="jCode">Enter the code</label>
+          <input type="tel" id="jCode" inputmode="numeric" maxlength="6"
+            autocomplete="one-time-code" placeholder="000000" enterkeyhint="go">
+        </div>
+        <button class="btn primary join-go" id="jVerify">Open my account</button>
+
+        <a class="btn ghost block mt" href="${esc(r.whatsapp)}" target="_blank" rel="noopener">
+          Send it to them on WhatsApp instead
+        </a>
+        <p class="join-fine">Use that if you are signing somebody else up — it opens WhatsApp
+          with their code and their link already written, addressed to their number.</p>`;
+
+      const verify = async () => {
+        const btn = $('#jVerify');
+        btn.disabled = true;
+        btn.textContent = 'Checking…';
+        try {
+          const v = await POST('/api/broker/quick-join/verify', {
+            phone: r.phone,
+            code: $('#jCode').value,
+          });
+          toast('You are in', 'ok');
+          location.href = v.next || '/admin';
+        } catch (e) {
+          $('#joinMsg').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+          btn.disabled = false;
+          btn.textContent = 'Open my account';
+        }
+      };
+      $('#jVerify').onclick = verify;
+      $('#jCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') verify(); });
+      $('#jCode').focus();
+    }
+  }
+
   function pageTrack(query) {
     const savedRef = query.ref || store.get('lastRef', '');
     const savedPhone = query.phone || store.get('lastPhone', '');
@@ -4849,6 +4976,8 @@
           return await pageApply(path[1], path[2], query);
         case 'done':
           return pageDone(path[1]);
+        case 'join':
+          return pageJoin();
         case 'track':
           return pageTrack(query);
         case 'broker-check':
