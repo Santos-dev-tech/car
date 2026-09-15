@@ -3334,6 +3334,122 @@
     }
   }
 
+  /* ------------------------------------------------------------------
+     The sign-up drive. Built for one morning: Jamhuri car bazaar, 6am to 6pm, about a
+     thousand KABA members and fifteen hundred cars in a field.
+
+     The whole design assumption is that you are holding the phone and somebody else is
+     standing in front of you with a customer waiting. So there are exactly two ways to
+     get a man onto the register and they are both on this one screen:
+
+       SCAN. Hold the phone up, he points his camera at it, he lands on the sign-up on his
+       OWN handset — which is where the account has to live anyway. About five seconds, and
+       you never touch his phone or his spelling.
+
+       TYPE. For the man whose camera is broken, or who will not take his phone out. Name,
+       number, next. The WhatsApp button sends him his code without you knowing his email,
+       because he does not have one.
+
+     The count is there because momentum sells. "You would be number forty-one this
+     morning" does more work than any explanation of attribution.
+     ------------------------------------------------------------------ */
+  async function pageDrive() {
+    view.innerHTML = '<div class="spinner"></div>';
+    let stats = { total: 0, today: 0, joinUrl: '' };
+    try { stats = await GET('/api/broker/count'); } catch { /* the page still works */ }
+
+    /* Fall back to wherever this page is being served from, so it is never a dead link. */
+    const joinUrl = stats.joinUrl && /^https?:/.test(stats.joinUrl)
+      ? stats.joinUrl
+      : location.origin + '/#/join';
+
+    const mine = store.get('driveAdded', []) || [];
+
+    view.innerHTML = `
+      <section class="drive">
+        <div class="drive-head">
+          <div class="lbl">Sign-up drive</div>
+          <h1 class="drive-h1">Point your camera here</h1>
+          <p class="drive-sub">Free for introducers. Register your client before you bring
+            them in and the deal is yours for 90 days — whatever car they end up buying.</p>
+        </div>
+
+        <div class="drive-qr">
+          <img src="/img/qr.svg?text=${encodeURIComponent(joinUrl)}" alt="QR code to the sign-up page" width="320" height="320">
+          <div class="drive-url">${esc(joinUrl.replace(/^https?:\/\//, ''))}</div>
+        </div>
+
+        <div class="drive-count">
+          <div><b>${stats.total}</b><span>on the register</span></div>
+          <div><b>${stats.today}</b><span>joined today</span></div>
+        </div>
+
+        <details class="drive-manual">
+          <summary>Or add someone yourself</summary>
+          <div class="field join-field mt">
+            <label for="dvName">Their name</label>
+            <input type="text" id="dvName" autocapitalize="words" placeholder="Peter Kariuki" enterkeyhint="next">
+          </div>
+          <div class="field join-field">
+            <label for="dvPhone">Their phone number</label>
+            <input type="tel" id="dvPhone" inputmode="tel" placeholder="0712 345 678" enterkeyhint="go">
+          </div>
+          ${honeypot()}
+          <button class="btn primary join-go" id="dvGo">Add them</button>
+          <div id="dvOut" class="mt"></div>
+
+          ${
+            mine.length
+              ? `<div class="lbl mt-lg">Added from this phone (${mine.length})</div>
+                 <div class="drive-list">${mine.slice(0, 40).map((x) => `
+                   <div><b>${esc(x.name)}</b><span>${esc(x.phone)}</span></div>`).join('')}</div>
+                 <button class="btn ghost sm mt" id="dvClear">Clear this list</button>`
+              : ''
+          }
+        </details>
+      </section>`;
+
+    const add = async () => {
+      const btn = $('#dvGo');
+      const name = $('#dvName').value.trim();
+      const phone = $('#dvPhone').value.trim();
+      btn.disabled = true;
+      btn.textContent = 'Adding…';
+      try {
+        const r = await POST('/api/broker/quick-join', { name, phone, ...botFields() });
+        /* Kept in this browser only. It is the list of people YOU signed up this morning,
+           so you can see the morning working — it is not a copy of the register, and the
+           server never sends one. */
+        const list = store.get('driveAdded', []) || [];
+        list.unshift({ name: r.name, phone: r.phone, at: Date.now() });
+        store.set('driveAdded', list.slice(0, 200));
+
+        $('#dvOut').innerHTML = `
+          <div class="form-note ok"><span>✓</span><div>${
+            r.created ? esc(r.name) + ' is on the register.' : esc(r.name) + ' was already registered.'
+          }</div></div>
+          ${r.code ? `<div class="join-code-box"><div class="lbl">Their code</div>
+            <div class="join-code">${esc(r.code)}</div></div>` : ''}
+          <a class="btn block lg mt" href="${esc(r.whatsapp)}" target="_blank" rel="noopener">
+            Send them their link on WhatsApp
+          </a>
+          <button class="btn primary block lg mt" id="dvNext">Add the next one</button>`;
+        $('#dvNext').onclick = () => render();
+      } catch (e) {
+        $('#dvOut').innerHTML = `<div class="form-note err"><span>✕</span><div>${esc(e.message)}</div></div>`;
+      }
+      btn.disabled = false;
+      btn.textContent = 'Add them';
+    };
+
+    $('#dvGo').onclick = add;
+    ['dvName', 'dvPhone'].forEach((id) => {
+      $('#' + id).addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
+    });
+    const clear = $('#dvClear');
+    if (clear) clear.onclick = () => { store.set('driveAdded', []); render(); };
+  }
+
   function pageTrack(query) {
     const savedRef = query.ref || store.get('lastRef', '');
     const savedPhone = query.phone || store.get('lastPhone', '');
@@ -4976,6 +5092,8 @@
           return await pageApply(path[1], path[2], query);
         case 'done':
           return pageDone(path[1]);
+        case 'drive':
+          return await pageDrive();
         case 'join':
           return pageJoin();
         case 'track':

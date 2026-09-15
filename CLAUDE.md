@@ -105,15 +105,16 @@ node --no-warnings tools/broker-test.js       # 102 attribution + verification, 
 node --no-warnings tools/deal-test.js         # 52  signing, balance, insurance, handover, no server
 node --no-warnings tools/insurance-test.js    # 56  quotes, the commission cap, renewals, no server
 node --no-warnings tools/statement-test.js    # 59  monthly statements and the month boundary, no server
-node --no-warnings tools/smoke.js 4000        # 386 the whole API, needs the server up
+node --no-warnings tools/qr-test.js           # 35  the QR encoder, round-tripped through a decoder
+node --no-warnings tools/smoke.js 4000        # 395 the whole API, needs the server up
 ```
 
-**1,031 assertions. All twelve pass.** Each exits with its failure count, so any of them can
+**1,075 assertions. All thirteen pass.** Each exits with its failure count, so any of them can
 gate a deploy. `audit.js` is the one that matters before anything goes public — it greps
 for committed secrets, refuses third-party imports, and asserts the named security controls
 and front-end invariants are still in place.
 
-Run all twelve after any change to `lib/`. Run `audit.js` after any change to `public/`.
+Run all thirteen after any change to `lib/`. Run `audit.js` after any change to `public/`.
 
 **Restart the server between smoke runs.** The login limiter and the booking limiter are
 in-memory, and a second run against the same process trips them — the suite then fails on
@@ -176,6 +177,7 @@ lib/commerce.js    booking deposits, payment providers, offer letters
 lib/deal.js        what is left between the finance and the keys, and who is waiting
 lib/insurance.js   the panel, the quotes, the commission cap and the renewal book
 lib/statement.js   what each payer owes for a month, and why it stops moving once issued
+lib/qr.js          a QR encoder — byte mode, level M, versions 1-6, no dependencies
 lib/jobs.js        the self-refreshing fuel price schedule
 lib/seed.js        demo dealerships, lenders, stock, staff
 lib/demo.js        sample pipeline so the console is not empty on first run

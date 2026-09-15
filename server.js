@@ -23,6 +23,7 @@ if (argFlag('reset')) {
   console.log('· database reset');
 }
 
+const qr = require('./lib/qr');
 const { seedIfEmpty, ensureBrokerAccount, ensureSettlementDefaults, ensureInsurancePanel, backfillFundedAt } = require('./lib/seed');
 const { seedDemoActivity } = require('./lib/demo');
 const { routes, ApiError } = require('./lib/api');
@@ -396,6 +397,26 @@ const server = http.createServer(async (req, res) => {
     const svg = vehicleSvg(parsed.query);
     res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' });
     return res.end(svg);
+  }
+
+  /* A QR code as an image, so a broker at a bazaar can point a camera at a phone screen
+     instead of typing a URL. Drawn on the fly - there is nothing to store and nothing to
+     invalidate, and lib/qr.js has no dependencies to install. */
+  if (pathname === '/img/qr.svg') {
+    const text = String(parsed.query.text || '').slice(0, 300);
+    if (!text) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      return res.end('Nothing to encode');
+    }
+    try {
+      const out = qr.svg(text, { dark: String(parsed.query.dark || '#000000').slice(0, 24) });
+      res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600' });
+      return res.end(out);
+    } catch (e) {
+      /* Only ever "too long for a version 6 code", and saying so beats a broken image. */
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      return res.end(e.message);
+    }
   }
 
   if (pathname === '/health') {

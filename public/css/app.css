@@ -2465,3 +2465,62 @@ img { decoding: async; }
   letter-spacing: .12em;
   margin-top: 4px;
 }
+
+/* ------------------------------------------------------------------
+   The sign-up drive, held up at arm's length in a field.
+
+   The QR is capped at 320px and centred on white. White is not a style choice: a QR on a
+   dark background does not scan on a cheap camera, so the code carries its own white
+   ground regardless of the page theme.
+   ------------------------------------------------------------------ */
+.drive { max-width: 520px; margin: 0 auto; padding: var(--space-24) 0 var(--space-40); text-align: center; }
+.drive-head { margin-bottom: var(--space-24); }
+.drive-h1 {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 7.5vw, 40px);
+  line-height: 1.04;
+  letter-spacing: -.03em;
+  margin: 6px 0 10px;
+}
+.drive-sub { color: var(--muted); margin: 0 auto; max-width: 38ch; }
+
+.drive-qr { display: grid; justify-items: center; gap: 10px; }
+.drive-qr img {
+  width: min(320px, 78vw);
+  height: auto;
+  /* Its own white surround, so the quiet zone survives a dark page. */
+  background: #fff;
+  padding: 10px;
+  border: 1px solid var(--line);
+}
+.drive-url { font-family: var(--mono); font-size: .82rem; color: var(--dim); word-break: break-all; }
+
+.drive-count {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-32);
+  margin: var(--space-24) 0;
+}
+.drive-count > div { display: grid; }
+.drive-count b { font-size: 2rem; line-height: 1; font-weight: 700; }
+.drive-count span { font-size: var(--text-label); color: var(--dim); text-transform: uppercase; letter-spacing: var(--track); }
+
+.drive-manual { text-align: left; border-top: 1px solid var(--line); padding-top: var(--space-16); }
+.drive-manual summary {
+  cursor: pointer;
+  font-size: var(--text-label);
+  text-transform: uppercase;
+  letter-spacing: var(--track);
+  color: var(--dim);
+  padding: 8px 0;
+}
+.drive-list { display: grid; gap: 1px; margin-top: var(--space-8); }
+.drive-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-16);
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: .9rem;
+}
+.drive-list span { color: var(--dim); font-family: var(--mono); font-size: .82rem; }

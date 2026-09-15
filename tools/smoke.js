@@ -1051,6 +1051,27 @@ const PDF_DATA_URL =
     const pw = await api('POST', '/api/auth/login', { email: bphone.replace(/\D/g, '').replace(/^0/, '254') + '@phone.motoke.invalid', password: 'password' });
     ok('the synthetic address cannot be used to sign in', pw.status === 401, pw.json);
 
+    /* THE SCOREBOARD. Public and aggregate only: a running total is what sells a broker
+       standing in a field on whether to bother, and a list of names and numbers would be a
+       directory of other people's business contacts. */
+    const count = await api('GET', '/api/broker/count');
+    ok('the register publishes a running total', count.status === 200 && count.json.total > 0, count.json);
+    ok('and how many joined today', typeof count.json.today === 'number');
+    ok('NO NAMES OR NUMBERS IN THE COUNT', !/name|phone|email|\+254/i.test(JSON.stringify(count.json)),
+      JSON.stringify(count.json));
+    ok('it carries the address the QR should point at', /^https?:/.test(count.json.joinUrl || ''), count.json.joinUrl);
+
+    /* The QR itself, which is drawn rather than stored. */
+    const png = await fetch(BASE + '/img/qr.svg?text=' + encodeURIComponent(count.json.joinUrl));
+    const svgText = await png.text();
+    ok('a QR renders as an svg', png.status === 200 && /^<svg /.test(svgText));
+    ok('served as an image', (png.headers.get('content-type') || '').includes('svg'));
+    ok('with a white ground, because a QR on a dark page does not scan', /fill="#ffffff"/.test(svgText));
+    const empty = await fetch(BASE + '/img/qr.svg?text=');
+    ok('nothing to encode is refused rather than drawn blank', empty.status === 400);
+    const huge = await fetch(BASE + '/img/qr.svg?text=' + 'z'.repeat(200));
+    ok('and too much to encode says so', huge.status === 400 && /106/.test(await huge.text()));
+
     cookie = keep;
   }
 
