@@ -36,6 +36,9 @@
     ['Insurers', 'insurers', '🛡', 'lenders'],
     ['Policies & commission', 'policies', '📑', 'applications'],
     ['Invoicing', 'invoicing', '🧾', 'stats'],
+    /* The field tool. Lives in the console because it is yours rather than a customer's,
+       and the one place you will already be signed in on a Sunday morning. */
+    ['Sign-up drive', 'drive', '📣', 'stats'],
     ['Running costs', 'costs', '⛽', 'costs'],
     ['SECTION', 'Setup'],
     ['Dealership', 'dealership', '🏢', 'dealership'],
@@ -3075,6 +3078,10 @@ Toyota,Vitz,2019,1150000,foreign_used,Hatchback,Petrol,Automatic,62000,Silver"><
           return await pagePolicies();
         case 'invoicing':
           return await pageInvoicing();
+        case 'drive':
+          /* One screen, and it is the storefront's — no point maintaining two. */
+          location.href = '/#/drive';
+          return;
         case 'leads':
           return await pageLeads();
         case 'dealership':

@@ -3252,6 +3252,12 @@
           </div>
 
           <div id="joinMsg"></div>
+
+          <!-- Not for the broker reading this page. For whoever is signing thirty of them
+               up in a field and needs the code to hold up, without signing in first. -->
+          <p class="join-fine" style="margin-top:22px">
+            Signing people up at a bazaar? <a href="#/drive">Open the sign-up drive</a>.
+          </p>
         </div>
       </section>`;
 
